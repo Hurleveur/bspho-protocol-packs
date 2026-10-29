@@ -141,6 +141,47 @@ const RULES = [
 	"Return one entry per input index, all indices.",
 ].join("\n");
 
+const Verdicts = z.object({
+	changed: z
+		.array(
+			z.object({
+				i: z.number().int().describe("Index of the line."),
+				lang: z.enum(["en", "fr", "nl"]),
+				why: z
+					.string()
+					.describe("What changed, in a few words (e.g. 'drops even if')."),
+			}),
+		)
+		.describe(
+			"Only the summaries that change the meaning of their line. Empty when all are faithful.",
+		),
+});
+
+/**
+ * The review prompt: each original line with its summaries. The reviewer flags only meaning changes,
+ * never style or shortening, so a flag means a doctor reading the summary would act differently.
+ */
+export function reviewPrompt(lines: { original: string; sum: Summaries }[]) {
+	return [
+		"You review short summaries of lines from a paediatric oncology treatment protocol. A doctor reads the summary instead of the line, then checks the PDF.",
+		"Flag a summary only if a doctor reading it would understand something different from the original line:",
+		"- a negation, condition, exception or qualifier dropped, added or reversed ('not', 'unless', 'even if', 'only', 'except', 'at least', 'may' vs 'must');",
+		"- 'and' vs 'or' changed, or alternatives merged;",
+		"- a different scope: which patients, which course, which timepoint, which drug;",
+		"- a different instruction or decision, or a fact not in the line.",
+		"Shortening, dropped context, rationale or references, telegraphic style and translation are fine: do not flag them.",
+		"",
+		...lines.map(
+			(l, i) =>
+				`[${i}] ORIGINAL: ${l.original.replace(/\s+/g, " ").trim()}\n${LANGS.filter(
+					(x) => l.sum[x],
+				)
+					.map((x) => `    ${x}: ${l.sum[x]}`)
+					.join("\n")}`,
+		),
+	].join("\n");
+}
+
 export interface Usage {
 	inputTokens?: number;
 	outputTokens?: number;
@@ -228,6 +269,8 @@ export interface SummarizeStats {
 	tokensOut: number;
 	models: Record<string, number>;
 	failedCalls: number;
+	/** Summaries the review rejected for changing the meaning of their line. */
+	meaning: number;
 }
 
 const complete = (s?: Summaries) => !!(s?.en && s.fr && s.nl);
@@ -281,6 +324,7 @@ export async function summarizeSpec(
 	const stats: SummarizeStats = {
 		ok: 0,
 		rejected: 0,
+		meaning: 0,
 		retried: 0,
 		lines: 0,
 		titles: 0,
@@ -359,6 +403,43 @@ export async function summarizeSpec(
 			return next;
 		};
 
+		// A second call reviews the accepted summaries against their lines; a meaning change is rejected.
+		const review = async (idx: number[], final: boolean) => {
+			const shown = idx.filter((i) => Object.keys(accepted[i]).length);
+			if (!shown.length) return;
+			try {
+				const { out } = await limit(() =>
+					callModel(
+						Verdicts,
+						reviewPrompt(
+							shown.map((i) => ({
+								original: items[i].block.text,
+								sum: accepted[i],
+							})),
+						),
+						onUsage,
+					),
+				);
+				for (const v of out.changed) {
+					const orig = shown[v.i];
+					if (orig === undefined || !accepted[orig][v.lang]) continue;
+					delete accepted[orig][v.lang];
+					stats.meaning++;
+					if (!final)
+						pending.set(
+							orig,
+							[pending.get(orig), `${v.lang}: meaning (${v.why})`]
+								.filter(Boolean)
+								.join(", "),
+						);
+				}
+			} catch {
+				// No review, no summary: the line shows the original.
+				stats.failedCalls++;
+				for (const i of shown) accepted[i] = {};
+			}
+		};
+
 		const all = items.map((_, i) => i);
 		try {
 			const { out } = await limit(() =>
@@ -369,6 +450,7 @@ export async function summarizeSpec(
 			stats.failedCalls++;
 			pending = new Map(all.map((i) => [i, "no answer"]));
 		}
+		await review(all, false);
 		if (pending.size) {
 			const idx = [...pending.keys()];
 			stats.retried += idx.length;
@@ -382,6 +464,7 @@ export async function summarizeSpec(
 			} catch {
 				stats.failedCalls++;
 			}
+			await review(idx, true);
 		}
 		items.forEach((it, i) => {
 			const prev = opts.force ? {} : (it.block.sum ?? {});
