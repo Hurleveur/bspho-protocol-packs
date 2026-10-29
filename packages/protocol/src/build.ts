@@ -44,6 +44,7 @@ import {
 	ProtocolSpec,
 	SPEC_VERSION,
 	Timepoint,
+	type Treatment,
 	type Warning,
 } from "./spec.ts";
 import { type SegInput, type SegmentAnswer, Segments, segmentAll } from "./segment.ts";
@@ -1090,6 +1091,226 @@ async function monitoringMatrix(
 	throw last;
 }
 
+const TreatmentAnswer = z.object({
+	arms: z.array(
+		z.object({
+			label: z
+				.string()
+				.describe(
+					"Short name, 1-4 words, using the protocol's own words or abbreviations ('Induction', 'IR-Low', 'HR T-cell', 'Down SR').",
+				),
+			node: z
+				.string()
+				.nullable()
+				.describe("Id of the phase/section node that holds the arm, or null."),
+			steps: z
+				.array(z.string())
+				.describe("Step ids in the order a patient gets them."),
+		}),
+	),
+	riskGroups: z.array(
+		z.object({
+			label: z
+				.string()
+				.describe(
+					"Chip label, 1-4 words, the protocol's own name for the group ('SR', 'IR-Low', 'HR BCP', 'Very high risk').",
+				),
+			arms: z
+				.array(z.number().int())
+				.describe(
+					"Indexes into your arms list, in the order the group goes through them (shared induction first).",
+				),
+			steps: z
+				.array(z.string())
+				.optional()
+				.describe(
+					"Only for an arm where the group takes some of its steps: those step ids. Arms with none listed are taken whole.",
+				),
+			rule: z
+				.string()
+				.nullable()
+				.describe(
+					"Id of the risk_groups/risk_group node that defines who is in the group, or null.",
+				),
+		}),
+	),
+});
+
+const slugOf = (s: string) =>
+	s
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-|-$/g, "");
+
+/**
+ * Arms and risk-group paths from one model call: it sees the steps, phases, risk-group sections and flow edges
+ * (by short ids) and groups steps into arms and arms into paths. Code keeps only known ids, each step in one arm,
+ * and a label only when all its words appear in the protocol's titles or flow evidence (else the node's title).
+ */
+export async function treatmentModel(
+	title: string,
+	nodes: Node[],
+	edges: Edge[],
+): Promise<Treatment | undefined> {
+	const shown = nodes.filter((n) =>
+		[
+			"step",
+			"phase",
+			"risk_groups",
+			"risk_group",
+			"response_assessment",
+			"restratification",
+		].includes(n.kind),
+	);
+	const steps = shown.filter((n) => n.kind === "step");
+	if (!steps.length) return undefined;
+	const alias = new Map(shown.map((n, i) => [n.id, `n${i}`]));
+	const byAlias = new Map(shown.map((n, i) => [`n${i}`, n]));
+	const parentOf = (n: Node) =>
+		n.parent ? nodes.find((x) => x.id === n.parent) : undefined;
+	const outline = shown.map((n) => {
+		const p = parentOf(n);
+		return `${alias.get(n.id)} ${n.kind} p${n.pages.from} "${n.title.replace(/\s+/g, " ").slice(0, 140)}"${p ? ` in "${p.title.replace(/\s+/g, " ").slice(0, 80)}"${alias.has(p.id) ? ` (${alias.get(p.id)})` : ""}` : ""}`;
+	});
+	const flow = edges
+		.filter((e) => alias.has(e.from) && alias.has(e.to))
+		.map(
+			(e) =>
+				`${alias.get(e.from)} -${e.kind}-> ${alias.get(e.to)}${e.evidence ? `: "${e.evidence.text.replace(/\s+/g, " ").slice(0, 200)}"` : ""}`,
+		);
+	const prompt = [
+		`Paediatric oncology protocol "${title}". Below are its treatment steps, phases, risk-group and response sections (id, kind, page, title, the section it sits in), then the treatment flow edges with the sentence that decides each.`,
+		"1. Group the steps into arms, the way a clinician switches between treatment tabs: induction, each post-induction arm, a relapse or experimental arm. Every step in exactly one arm, in the order a patient gets them. An arm is usually the phase/section that holds its steps; when a whole-document heading (contents, synopsis, 'table of tables', 'treatment', 'therapy elements') holds steps, group them by treatment phase instead. Alternatives of one step (Course 4 hA or HA, Induction A to F, standard vs experimental arm of one block) stay in the same arm. Name an arm by what it is ('Induction', 'Consolidation', 'IR-Low'), never by a generic chapter name ('Treatment', 'Therapy elements') unless it is the only arm.",
+		"2. Only when the protocol sends patients down different arms (or different steps of one arm) by risk group, stratum or response, give each risk group as a path: the arms in order, starting with the shared ones (induction). Use the protocol's own group names. A randomisation between two arms is not a risk group. If there is no such split, return no risk groups.",
+		"Give a group's steps only for an arm where the protocol's titles or flow evidence say which group gets which step ('VHR: CT1A', 'MRD-negative patients receive hA'). When the choice within an arm depends on something other than the group (NCI risk, age or genetics at diagnosis for Induction A to F), leave that arm's steps out: the group takes the whole arm.",
+		"Labels: short, in the protocol's own words or abbreviations, never invented. Only use ids from the list.",
+		"",
+		...outline,
+		"",
+		"Flow:",
+		...flow,
+	].join("\n");
+	let ans: z.infer<typeof TreatmentAnswer> | undefined;
+	let model = "";
+	let last: unknown;
+	for (const m of MODELS) {
+		try {
+			const vertex = createVertex({ project: PROJECT, location: m.location });
+			const r = await generateText({
+				model: vertex(m.model),
+				output: Output.object({ schema: TreatmentAnswer }),
+				prompt,
+				temperature: 0,
+				providerOptions: { vertex: { thinkingConfig: thinkingFor(m.model) } },
+			});
+			track("treatment", r.usage);
+			ans = r.output;
+			model = m.model;
+			break;
+		} catch (e) {
+			last = e;
+		}
+	}
+	if (!ans) throw last;
+
+	// A label is kept only when every word of it is printed in the protocol's titles or flow evidence.
+	const vocab = new Set(
+		[
+			...nodes.map((n) => n.title),
+			...edges.flatMap((e) => (e.evidence ? [e.evidence.text] : [])),
+		]
+			.join(" ")
+			.toLowerCase()
+			.split(/[^a-z0-9]+/)
+			.filter(Boolean),
+	);
+	const grounded = (label: string) => {
+		const words = label
+			.toLowerCase()
+			.split(/[^a-z0-9]+/)
+			.filter(Boolean);
+		return (
+			words.length > 0 && words.length <= 4 && words.every((w) => vocab.has(w))
+		);
+	};
+	const used = new Set<string>();
+	const ids = new Set<string>();
+	const unique = (base: string) => {
+		let id = base || "arm";
+		for (let i = 2; ids.has(id); i++) id = `${base}-${i}`;
+		ids.add(id);
+		return id;
+	};
+	const arms: Treatment["arms"] = [];
+	const armAt = new Map<number, string>();
+	ans.arms.forEach((a, i) => {
+		const own = a.steps
+			.map((s) => byAlias.get(s.trim()))
+			.filter((n): n is Node => n?.kind === "step" && !used.has(n.id));
+		if (!own.length) return;
+		for (const n of own) used.add(n.id);
+		const holder = a.node ? byAlias.get(a.node.trim()) : undefined;
+		const fullTitle = holder ? holder.title.replace(/^[\d.]+\s*/, "").trim() : "";
+		const label = grounded(a.label) ? a.label.trim() : fullTitle || own[0].title;
+		const id = unique(slugOf(label));
+		armAt.set(i, id);
+		arms.push({
+			id,
+			label,
+			title: fullTitle || label,
+			node: holder?.id ?? null,
+			steps: own.map((n) => n.id),
+		});
+	});
+	// Steps the model left out keep an arm of their own, so nothing disappears from the sheet.
+	const rest = steps.filter((s) => !used.has(s.id));
+	if (rest.length)
+		arms.push({
+			id: unique("other-steps"),
+			label: "Other steps",
+			title: "Other steps",
+			node: null,
+			steps: rest.map((s) => s.id),
+		});
+
+	ids.clear();
+	// A step named by some group is that group's choice within its arm; the arm's other steps are shared.
+	const namedBy = ans.riskGroups.map(
+		(g) =>
+			new Set(
+				(g.steps ?? [])
+					.map((x) => byAlias.get(x.trim())?.id)
+					.filter((x): x is string => !!x),
+			),
+	);
+	const chosen = new Set(namedBy.flatMap((x) => [...x]));
+	const riskGroups: Treatment["riskGroups"] = [];
+	for (const [gi, g] of ans.riskGroups.entries()) {
+		const path = g.arms.map((i) => armAt.get(i)).filter((x): x is string => !!x);
+		if (!path.length || !grounded(g.label)) continue;
+		const onPath = path.flatMap((aid) =>
+			(arms.find((a) => a.id === aid)?.steps ?? []).filter(
+				(x) => !chosen.has(x) || namedBy[gi].has(x),
+			),
+		);
+		const rule = g.rule ? byAlias.get(g.rule.trim()) : undefined;
+		const last = arms.find((a) => a.id === path.at(-1));
+		riskGroups.push({
+			id: unique(slugOf(g.label)),
+			label: g.label.trim(),
+			title: last && path.length > 1 ? last.title : g.label.trim(),
+			arms: path,
+			steps: onPath,
+			rule:
+				rule && (rule.kind === "risk_groups" || rule.kind === "risk_group")
+					? rule.id
+					: null,
+		});
+	}
+	// One group is no choice: a filter needs two paths.
+	return { model, arms, riskGroups: riskGroups.length >= 2 ? riskGroups : [] };
+}
+
 async function label(title: string, sections: Section[]) {
 	const prompt = [
 		`You label the structure of a paediatric oncology clinical trial protocol: "${title}".`,
@@ -1466,6 +1687,27 @@ export async function buildSpec(input: BuildInput): Promise<ProtocolSpec> {
 		ms: lap("anchors"),
 	});
 
+	// Arms and risk-group paths over the steps and flow.
+	let treatment: Treatment | undefined;
+	if (!input.offline) {
+		try {
+			treatment = await treatmentModel(id.title, nodes, edges);
+			emit({
+				stage: "check",
+				message: `Grouped the steps into ${treatment?.arms.length ?? 0} arms and ${treatment?.riskGroups.length ?? 0} risk-group paths`,
+				counts: {
+					arms: treatment?.arms.length ?? 0,
+					riskGroups: treatment?.riskGroups.length ?? 0,
+				},
+			});
+		} catch {
+			warnings.push({
+				code: "treatment_failed",
+				message: "Could not group the treatment into arms; grouped by section.",
+			});
+		}
+	}
+
 	// Diagnostic work-up: a stage for every line (protocols often keep the whole work-up in one section).
 	if (!input.offline) {
 		try {
@@ -1680,6 +1922,7 @@ export async function buildSpec(input: BuildInput): Promise<ProtocolSpec> {
 		nodes,
 		edges,
 		...(monitoring ? { monitoring } : {}),
+		...(treatment ? { treatment } : {}),
 		...(findings.length ? { findings } : {}),
 		build: {
 			pipelineVersion: PIPELINE_VERSION,

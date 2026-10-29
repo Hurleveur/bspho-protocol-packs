@@ -1,6 +1,6 @@
 "use client";
 
-import type { Node, ProtocolSpec } from "@bspho/protocol/spec";
+import type { Node, ProtocolSpec, Treatment } from "@bspho/protocol/spec";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	type CaseState,
@@ -23,6 +23,8 @@ export interface CaseApi {
 	ui: CaseUi;
 	setUi: (u: CaseUi) => void;
 	byId: Map<string, Node>;
+	/** The spec's arms and risk groups: a case's arm id can name one of them. */
+	treatment?: Treatment;
 	status: (stepId: string) => "done" | "current" | undefined;
 	reqKeys: string[];
 	begin: (arm: string, why: number[], step: string | undefined) => void;
@@ -75,7 +77,7 @@ export function useCase(opts: {
 
 	const apply = useCallback(
 		(raw: string): string | null => {
-			const r = decodeCase(raw, spec.nodes);
+			const r = decodeCase(raw, spec.nodes, spec.treatment);
 			if ("error" in r) return r.error;
 			if (r.state.protocolId !== protocolId)
 				return `This case code is for another protocol (${r.state.protocolId}). Open it from that protocol's page.`;
@@ -158,6 +160,7 @@ export function useCase(opts: {
 		ui,
 		setUi,
 		byId,
+		treatment: spec.treatment,
 		reqKeys,
 		status: (id) =>
 			!full

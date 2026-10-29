@@ -2,7 +2,7 @@
  * Treatment map model: arms (the same step grouping the contents list uses), and a layered
  * left-to-right layout of one arm's steps, with forks and exits to other arms.
  */
-import type { Anchor, Edge, Node } from "@bspho/protocol/spec";
+import type { Anchor, Edge, Node, Treatment } from "@bspho/protocol/spec";
 
 export interface Arm {
 	/** Parent node id of the arm's steps ("" when the steps have no parent). */
@@ -15,8 +15,24 @@ export interface Arm {
 	steps: Node[];
 }
 
-/** Steps grouped by their parent (arm, phase), in order of first appearance. */
-export function armsOf(steps: Node[], byId: Map<string, Node>): Arm[] {
+/** The spec's arms; specs built before the treatment pass group steps by their parent (arm, phase). */
+export function armsOf(
+	steps: Node[],
+	byId: Map<string, Node>,
+	treatment?: Treatment,
+): Arm[] {
+	if (treatment) {
+		const on = new Set(steps.map((s) => s.id));
+		return treatment.arms
+			.map((a) => ({
+				key: a.id,
+				label: a.title,
+				short: a.label,
+				phase: true,
+				steps: a.steps.filter((id) => on.has(id)).map((id) => byId.get(id)!),
+			}))
+			.filter((a) => a.steps.length);
+	}
 	const out: Arm[] = [];
 	const at = new Map<string, Arm>();
 	for (const s of steps) {
@@ -440,4 +456,5 @@ function must<K, V>(m: Map<K, V>, k: K): V {
 }
 
 /** A parent title that names no arm ("Therapy Elements", "13 Treatment Details"). */
-export const isGenericArm = (label: string) => GENERIC.test(label.replace(/^[\d.]+\s*/, "").trim());
+export const isGenericArm = (label: string) =>
+	GENERIC.test(label.replace(/^[\d.]+\s*/, "").trim());

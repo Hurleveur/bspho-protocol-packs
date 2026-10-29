@@ -675,6 +675,84 @@ export const Finding = z
 	);
 export type Finding = z.infer<typeof Finding>;
 
+export const Treatment = z
+	.object({
+		model: z.string().describe("[code] Model that grouped the treatment."),
+		arms: z
+			.array(
+				z.object({
+					id: z
+						.string()
+						.describe("[code] Slug of the label, unique within the spec."),
+					label: z
+						.string()
+						.describe(
+							"[llm, code checks every word appears in the protocol's titles or flow evidence] Short name for tabs and chips, 1-4 words ('Induction', 'IR-Low', 'HR T-cell').",
+						),
+					title: z
+						.string()
+						.describe(
+							"[code] Full name: the title of `node`, else the label.",
+						),
+					node: z
+						.string()
+						.nullable()
+						.describe(
+							"[llm, checked] The phase or section node that holds the arm, if one does.",
+						),
+					steps: z
+						.array(z.string())
+						.describe(
+							"[llm, checked] Step node ids, in the order a patient gets them.",
+						),
+				}),
+			)
+			.describe(
+				"Treatment arms: the step groups a clinician switches between (induction, each post-induction arm, an experimental arm).",
+			),
+		riskGroups: z
+			.array(
+				z.object({
+					id: z
+						.string()
+						.describe("[code] Slug of the label (the ?g= URL value)."),
+					label: z
+						.string()
+						.describe(
+							"[llm, checked like arm labels] Chip label, 1-4 words.",
+						),
+					title: z
+						.string()
+						.describe(
+							"[code] Full name: the arm title that names the group, else the label.",
+						),
+					arms: z
+						.array(z.string())
+						.describe(
+							"[llm, checked] Arm ids the group goes through, in order.",
+						),
+					steps: z
+						.array(z.string())
+						.describe(
+							"[llm, checked] Every step on the path, in order: the whole of each arm, except where the protocol says the group takes only some of an arm's steps.",
+						),
+					rule: z
+						.string()
+						.nullable()
+						.describe(
+							"[llm, checked] The risk_groups/risk_group node that defines who is in the group.",
+						),
+				}),
+			)
+			.describe(
+				"Risk groups as paths through the arms. Empty when the protocol does not split patients into treatment paths.",
+			),
+	})
+	.describe(
+		"[llm points at node ids, code checks them] Arms and risk-group paths, from one model call over the steps, phases, risk-group sections and flow edges.",
+	);
+export type Treatment = z.infer<typeof Treatment>;
+
 export const ProtocolSpec = z
 	.object({
 		specVersion: z.literal(SPEC_VERSION).describe("[code] Version of this schema."),
@@ -690,6 +768,7 @@ export const ProtocolSpec = z
 				"[llm, evidence by code] Flow, forks, re-stratification and cross-references.",
 			),
 		monitoring: Monitoring.optional(),
+		treatment: Treatment.optional(),
 		findings: z
 			.array(Finding)
 			.optional()

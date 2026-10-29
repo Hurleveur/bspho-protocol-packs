@@ -12,7 +12,7 @@
  *
  * Anything else gets no groups: a wrong path shown to a doctor is worse than none.
  */
-import type { Edge, Node } from "@bspho/protocol/spec";
+import type { Edge, Node, Treatment } from "@bspho/protocol/spec";
 import { type Arm, armsOf } from "./flow";
 
 export interface Segment {
@@ -71,9 +71,50 @@ export function riskPaths(
 	steps: Node[],
 	byId: Map<string, Node>,
 	edges: Edge[],
+	treatment?: Treatment,
 ): RiskPath[] {
+	if (treatment)
+		return fromTreatment(treatment, armsOf(steps, byId, treatment), edges);
 	const arms = armsOf(steps, byId);
-	return byArms(arms, edges, byId) ?? byArmTitles(arms) ?? byTitles(arms, edges) ?? [];
+	return (
+		byArms(arms, edges, byId) ?? byArmTitles(arms) ?? byTitles(arms, edges) ?? []
+	);
+}
+
+/** The spec's risk groups: each a path through its arms, entered by the flow edge that leads into each segment. */
+function fromTreatment(t: Treatment, arms: Arm[], edges: Edge[]): RiskPath[] {
+	const byKey = new Map(arms.map((a) => [a.key, a]));
+	const groupsOf = new Map<string, number>();
+	for (const g of t.riskGroups)
+		for (const a of g.arms) groupsOf.set(a, (groupsOf.get(a) ?? 0) + 1);
+	const flow = edges.filter((e) => FLOW.has(e.kind) && e.kind !== "next");
+	return t.riskGroups.map((g) => {
+		const on = new Set(g.steps);
+		const segments: Segment[] = [];
+		for (const key of g.arms) {
+			const arm = byKey.get(key);
+			if (!arm) continue;
+			const steps = arm.steps.filter((s) => on.has(s.id));
+			const prev = new Set(
+				segments.flatMap((x) => [x.arm.key, ...x.steps.map((s) => s.id)]),
+			);
+			const into = new Set([arm.key, ...steps.map((s) => s.id)]);
+			const entry =
+				flow.find((e) => e.evidence && prev.has(e.from) && into.has(e.to)) ??
+				flow.find((e) => prev.has(e.from) && into.has(e.to));
+			if (steps.length)
+				segments.push({ arm, steps, ...(entry ? { entry } : {}) });
+		}
+		return {
+			id: g.id,
+			label: g.label,
+			title: g.title,
+			segments,
+			steps: on,
+			arms: new Set(g.arms),
+			own: new Set(g.arms.filter((a) => groupsOf.get(a) === 1)),
+		};
+	});
 }
 
 /** An arm the protocol itself titles by its patients: "Post-induction IR-Low Treatment", "Therapy for Down Patients". */
@@ -92,7 +133,8 @@ function byArmTitles(arms: Arm[]): RiskPath[] | null {
 		(a) =>
 			!groups.includes(a) &&
 			a.steps.length >= 2 &&
-			a.steps.filter((s) => /\binduction\b/i.test(s.title)).length >= a.steps.length / 2,
+			a.steps.filter((s) => /\binduction\b/i.test(s.title)).length >=
+				a.steps.length / 2,
 	);
 	if (!trunk) return null;
 	return unique(
@@ -119,7 +161,9 @@ function byArms(
 	edges: Edge[],
 	byId: Map<string, Node>,
 ): RiskPath[] | null {
-	const armByKey = new Map(arms.filter((a) => a.key && a.phase).map((a) => [a.key, a]));
+	const armByKey = new Map(
+		arms.filter((a) => a.key && a.phase).map((a) => [a.key, a]),
+	);
 	const armOfStep = new Map<string, Arm>();
 	for (const a of arms) for (const s of a.steps) armOfStep.set(s.id, a);
 	// Source arm → the phase arms it re-stratifies into.
@@ -186,7 +230,8 @@ function byTitles(arms: Arm[], edges: Edge[]): RiskPath[] | null {
 			if (p) tags.set(s.id, p[0]);
 		}
 		const n = new Set(tags.values()).size;
-		if (n >= 2 && (!best || n > new Set(best.tags.values()).size)) best = { arm, tags };
+		if (n >= 2 && (!best || n > new Set(best.tags.values()).size))
+			best = { arm, tags };
 	}
 	if (!best) return null;
 	const { arm, tags } = best;
@@ -214,7 +259,9 @@ function byTitles(arms: Arm[], edges: Edge[]): RiskPath[] | null {
 	const paths: RiskPath[] = [];
 	for (const [code, label] of PREFIXES) {
 		if (![...tags.values()].includes(code)) continue;
-		const steps = arm.steps.filter((s) => !tags.has(s.id) || tags.get(s.id) === code);
+		const steps = arm.steps.filter(
+			(s) => !tags.has(s.id) || tags.get(s.id) === code,
+		);
 		paths.push({
 			id: code,
 			label,
@@ -268,7 +315,8 @@ export function slotsOf(seg: Segment, edges: Edge[]): Slot[] {
 	for (const s of seg.steps) {
 		const into = flow.filter(
 			(e) =>
-				e.to === s.id && (e.kind === "alternative" || e.kind === "restratify_to"),
+				e.to === s.id &&
+				(e.kind === "alternative" || e.kind === "restratify_to"),
 		);
 		const fork = into.find(branching);
 		const key = fork ? `${fork.from}:${fork.kind}` : undefined;
@@ -297,7 +345,7 @@ function chains(ids: Set<string>, internal: Edge[]): number {
 	for (const id of ids) {
 		if (seen.has(id)) continue;
 		let size = 0;
-		for (const q = [id]; q.length; ) {
+		for (const q = [id]; q.length;) {
 			const c = q.pop() ?? id;
 			if (seen.has(c)) continue;
 			seen.add(c);

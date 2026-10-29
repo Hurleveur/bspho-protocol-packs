@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
 	type ArmOption,
 	armOptions,
+	armSource,
 	ehrSummary,
 	type LineNote,
 	quote,
@@ -33,14 +34,24 @@ const armText = (s: string) => (isGenericArm(s) ? "Treatment" : s);
 /* ------------------------------------------------------------------ header buttons */
 
 /** The header's secondary actions in one menu: follow or reopen a case, print the sheet. */
-export function CaseHeaderButtons({ kase, onPrint }: { kase: CaseApi; onPrint: () => void }) {
+export function CaseHeaderButtons({
+	kase,
+	onPrint,
+}: {
+	kase: CaseApi;
+	onPrint: () => void;
+}) {
 	const [open, setOpen] = useState(false);
 	const { lang, setLang } = useProtoLang();
 	const box = useRef<HTMLDivElement>(null);
 	useEffect(() => {
 		if (!open) return;
 		const close = (e: MouseEvent | KeyboardEvent) => {
-			if (e instanceof KeyboardEvent ? e.key === "Escape" : !box.current?.contains(e.target as globalThis.Node))
+			if (
+				e instanceof KeyboardEvent
+					? e.key === "Escape"
+					: !box.current?.contains(e.target as globalThis.Node)
+			)
 				setOpen(false);
 		};
 		document.addEventListener("mousedown", close);
@@ -50,7 +61,12 @@ export function CaseHeaderButtons({ kase, onPrint }: { kase: CaseApi; onPrint: (
 			document.removeEventListener("keydown", close);
 		};
 	}, [open]);
-	const item = (icon: React.ReactNode, label: string, hint: string, run: () => void) => (
+	const item = (
+		icon: React.ReactNode,
+		label: string,
+		hint: string,
+		run: () => void,
+	) => (
 		<button
 			type="button"
 			role="menuitem"
@@ -85,16 +101,29 @@ export function CaseHeaderButtons({ kase, onPrint }: { kase: CaseApi; onPrint: (
 					className="absolute top-full right-0 z-50 mt-1.5 w-72 rounded-lg border border-line bg-surface p-1.5 shadow-lg"
 				>
 					{!kase.state &&
-						item(<Route size={16} />, "Follow a case", "Track one patient's position. Nothing is stored.", () =>
-							kase.setUi("start"),
+						item(
+							<Route size={16} />,
+							"Follow a case",
+							"Track one patient's position. Nothing is stored.",
+							() => kase.setUi("start"),
 						)}
-					{item(<ClipboardPaste size={16} />, "Paste case code", "Reopen a case from the EHR note", () =>
-						kase.setUi("paste"),
+					{item(
+						<ClipboardPaste size={16} />,
+						"Paste case code",
+						"Reopen a case from the EHR note",
+						() => kase.setUi("paste"),
 					)}
-					{item(<Printer size={16} />, "Print", "The sheet as shown, with page references", onPrint)}
+					{item(
+						<Printer size={16} />,
+						"Print",
+						"The sheet as shown, with page references",
+						onPrint,
+					)}
 					<div className="my-1 border-t border-line" />
 					<div role="group" aria-label="Protocol language">
-						<p className="px-3 pt-1.5 pb-1 text-[13px] text-muted">Protocol language</p>
+						<p className="px-3 pt-1.5 pb-1 text-[13px] text-muted">
+							Protocol language
+						</p>
 						{PROTO_LANGS.map((l) => (
 							<button
 								key={l.id}
@@ -107,7 +136,9 @@ export function CaseHeaderButtons({ kase, onPrint }: { kase: CaseApi; onPrint: (
 								}}
 								className={`flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-sm hover:bg-accent-soft focus-visible:bg-accent-soft focus-visible:outline-none ${lang === l.id ? "font-medium" : ""}`}
 							>
-								<span className="w-4 text-accent">{lang === l.id && <Check size={16} />}</span>
+								<span className="w-4 text-accent">
+									{lang === l.id && <Check size={16} />}
+								</span>
 								{l.label}
 							</button>
 						))}
@@ -148,7 +179,9 @@ export function CaseBar({
 	const c = kase.state;
 	if (!c) return null;
 	const t = (id?: string) =>
-		id ? (kase.byId.get(id)?.title ?? id).replace(/^[\d.]+\s*/, "") : undefined;
+		id
+			? armSource(id, kase.byId, kase.treatment).title.replace(/^[\d.]+\s*/, "")
+			: undefined;
 	return (
 		<div className="no-print border-b border-accent/30 bg-accent-soft/95 px-4 py-2 backdrop-blur">
 			<div className="flex items-center gap-3 text-sm">
@@ -160,7 +193,9 @@ export function CaseBar({
 					title={t(c.arm)}
 				>
 					<span className="text-muted">Arm </span>
-					<span className="font-medium">{c.arm ? armText(t(c.arm) ?? "") : "not chosen"}</span>
+					<span className="font-medium">
+						{c.arm ? armText(t(c.arm) ?? "") : "not chosen"}
+					</span>
 				</span>
 				<span className="text-faint">·</span>
 				{c.cur ? (
@@ -325,6 +360,7 @@ export function CaseDialogs({
 					link: kase.link ?? "",
 					protocol,
 					byId: kase.byId,
+					treatment: kase.treatment,
 					edges,
 					reqLines: kase.state.cur
 						? requirementLines(kase.state.cur, nodes)
@@ -354,7 +390,10 @@ function StartDialog({
 	steps: Node[];
 	onClose: () => void;
 }) {
-	const options = useMemo(() => armOptions(nodes, edges), [nodes, edges]);
+	const options = useMemo(
+		() => armOptions(nodes, edges, kase.treatment),
+		[nodes, edges, kase.treatment],
+	);
 	const [pick, setPick] = useState<ArmOption | null>(null);
 	const [why, setWhy] = useState<number[]>([]);
 	const [step, setStep] = useState<string>();

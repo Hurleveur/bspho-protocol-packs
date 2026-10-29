@@ -1,6 +1,6 @@
 "use client";
 
-import type { Anchor, Edge, Node } from "@bspho/protocol/spec";
+import type { Anchor, Edge, Node, Treatment } from "@bspho/protocol/spec";
 import { ArrowRightIcon, CheckIcon, GitForkIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { quoteLine } from "@/lib/format";
@@ -33,6 +33,7 @@ export function TreatmentMap({
 	printing,
 	path: riskPath,
 	paths = [],
+	treatment,
 	open,
 	show,
 }: {
@@ -48,6 +49,8 @@ export function TreatmentMap({
 	path?: RiskPath | null;
 	/** All risk-group paths: an arm that is one group's own is named like its chip. */
 	paths?: RiskPath[];
+	/** The spec's arms and risk groups (absent on specs built before the treatment pass). */
+	treatment?: Treatment;
 	/** Open a step card on the sheet and scroll to it (or any node). */
 	open: (nodeId: string) => void;
 	/** Show a verbatim line on its page. */
@@ -56,7 +59,10 @@ export function TreatmentMap({
 	// The last step card read stays highlighted when the reader scrolls back up to the map.
 	const [spy, setSpy] = useState(spyNow);
 	if (spyNow && spyNow !== spy) setSpy(spyNow);
-	const arms = useMemo(() => armsOf(steps, byId), [steps, byId]);
+	const arms = useMemo(
+		() => armsOf(steps, byId, treatment),
+		[steps, byId, treatment],
+	);
 	const armOf = useMemo(() => {
 		const m = new Map<string, Arm>();
 		for (const a of arms) for (const s of a.steps) m.set(s.id, a);
@@ -149,7 +155,9 @@ export function TreatmentMap({
 	const multi = arms.length > 1;
 	// Off the chosen path: still drawn and clickable, faded.
 	const off = (id: string) =>
-		!!riskPath && !riskPath.steps.has(id) && map.nodes.some((n) => n.id === id && !n.decision);
+		!!riskPath &&
+		!riskPath.steps.has(id) &&
+		map.nodes.some((n) => n.id === id && !n.decision);
 	const offArm = (a?: Arm) => !!riskPath && !!a && !riskPath.arms.has(a.key);
 	return (
 		<section
@@ -341,10 +349,10 @@ export function TreatmentMap({
 							: off(n.id) && !st
 								? "border-dashed border-line bg-paper text-muted hover:border-accent hover:bg-accent-soft hover:text-ink"
 								: st === "current"
-								? "border-accent bg-accent text-white shadow-md"
-								: st === "done"
-									? "border-line bg-paper text-muted"
-									: "border-line bg-surface text-ink hover:border-accent hover:bg-accent-soft";
+									? "border-accent bg-accent text-white shadow-md"
+									: st === "done"
+										? "border-line bg-paper text-muted"
+										: "border-line bg-surface text-ink hover:border-accent hover:bg-accent-soft";
 						return (
 							<foreignObject
 								key={n.id}
@@ -478,7 +486,9 @@ export function TreatmentMap({
 							}}
 							className="mt-1 block w-full rounded border border-line bg-paper px-2 py-1.5 text-left hover:border-flow/50 hover:bg-flow-soft"
 						>
-							<span className="verbatim line-clamp-6">{quoteLine(a.text)}</span>
+							<span className="verbatim line-clamp-6">
+								{quoteLine(a.text)}
+							</span>
 							<span className="mt-0.5 block text-xs text-accent">
 								p. {a.page} · open the page
 							</span>

@@ -36,12 +36,7 @@ import { type Arm, armsOf, splitNumber } from "@/lib/flow";
 import { formatDate, formatVersion } from "@/lib/format";
 import { armName, type RiskPath, riskPaths } from "@/lib/path";
 import { classify, DIAG_GROUPS, TopicIcon } from "./classify";
-import {
-	AGENT_GO,
-	AGENT_OPEN,
-	AgentDrawer,
-	type AgentGoDetail,
-} from "./agent-drawer";
+import { AGENT_GO, AGENT_OPEN, AgentDrawer, type AgentGoDetail } from "./agent-drawer";
 import { CaseBar, CaseDialogs, CaseHeaderButtons } from "./case/case-bar";
 import { CaseStepPanel } from "./case/step-panel";
 import { type CaseApi, useCase } from "./case/use-case";
@@ -49,7 +44,13 @@ import { CheckThese, FindingFlag } from "./check-these";
 import { Doses, doseGroups } from "./doses";
 import { FigureTable } from "./figure-table";
 import { ProtocolMenu } from "./protocol-menu";
-import { PROTO_LANGS, type ProtoLang, summaryOf, titleOf, useProtoLang } from "./proto-lang";
+import {
+	PROTO_LANGS,
+	type ProtoLang,
+	summaryOf,
+	titleOf,
+	useProtoLang,
+} from "./proto-lang";
 import { MonitoringView } from "./monitoring";
 import { LocalRuleForm } from "./local-rule-form";
 import { SearchPalette } from "./search-palette";
@@ -199,7 +200,14 @@ export function Pack({ data }: { data: PackData }) {
 	const dragPane = (e: React.PointerEvent) => {
 		e.preventDefault();
 		const move = (ev: PointerEvent) =>
-			setPaneW(Math.round(Math.min(Math.max(window.innerWidth - ev.clientX, 360), window.innerWidth * 0.75)));
+			setPaneW(
+				Math.round(
+					Math.min(
+						Math.max(window.innerWidth - ev.clientX, 360),
+						window.innerWidth * 0.75,
+					),
+				),
+			);
 		const up = () => {
 			window.removeEventListener("pointermove", move);
 			window.removeEventListener("pointerup", up);
@@ -290,7 +298,9 @@ export function Pack({ data }: { data: PackData }) {
 		const { [lineKey(a)]: _, ...rest } = notes;
 		const text = note.trim();
 		saveNotes(
-			text ? { ...rest, [lineKey(a)]: { line: a.text, page: a.page, note: text } } : rest,
+			text
+				? { ...rest, [lineKey(a)]: { line: a.text, page: a.page, note: text } }
+				: rest,
 		);
 	};
 
@@ -322,10 +332,13 @@ export function Pack({ data }: { data: PackData }) {
 	}, [hasCase, notesKey]);
 
 	// Risk-group path (?g=): one group's steps on the bar and the map, other arms folded.
-	const arms = useMemo(() => armsOf(sheet.steps, byId), [sheet.steps, byId]);
+	const arms = useMemo(
+		() => armsOf(sheet.steps, byId, spec.treatment),
+		[sheet.steps, byId, spec.treatment],
+	);
 	const paths = useMemo(
-		() => riskPaths(sheet.steps, byId, spec.edges),
-		[sheet.steps, byId, spec.edges],
+		() => riskPaths(sheet.steps, byId, spec.edges, spec.treatment),
+		[sheet.steps, byId, spec.edges, spec.treatment],
 	);
 	// undefined = not chosen (follow the case), null = "All groups".
 	const [pick, setPick] = useState<string | null | undefined>(undefined);
@@ -503,8 +516,13 @@ export function Pack({ data }: { data: PackData }) {
 				{
 					nodeId: n.id,
 					anchor: t.anchor,
-					label: t.anchor ? t.anchor.text.replace(/\s+/g, " ").slice(0, 120) : n.title,
-					path: [...n.headingPath.slice(0, -1), ...(t.anchor ? [n.title] : [])].join(" › "),
+					label: t.anchor
+						? t.anchor.text.replace(/\s+/g, " ").slice(0, 120)
+						: n.title,
+					path: [
+						...n.headingPath.slice(0, -1),
+						...(t.anchor ? [n.title] : []),
+					].join(" › "),
 				},
 			);
 			if (!pushed)
@@ -603,10 +621,21 @@ export function Pack({ data }: { data: PackData }) {
 	// In-sheet hash links (contents, "more items in ...") are jumps: one history entry each, via goTo.
 	useEffect(() => {
 		const onClick = (e: MouseEvent) => {
-			if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
+			if (
+				e.defaultPrevented ||
+				e.button !== 0 ||
+				e.metaKey ||
+				e.ctrlKey ||
+				e.shiftKey ||
+				e.altKey
+			)
 				return;
-			const a = (e.target as HTMLElement | null)?.closest<HTMLAnchorElement>('a[href^="#"]');
-			const id = a ? decodeURIComponent(a.getAttribute("href")?.slice(1) ?? "") : "";
+			const a = (e.target as HTMLElement | null)?.closest<HTMLAnchorElement>(
+				'a[href^="#"]',
+			);
+			const id = a
+				? decodeURIComponent(a.getAttribute("href")?.slice(1) ?? "")
+				: "";
 			if (!id || !document.getElementById(id)) return;
 			e.preventDefault();
 			goTo(id);
@@ -624,8 +653,9 @@ export function Pack({ data }: { data: PackData }) {
 				let cur = "";
 				// Below the bars, and below the Back pill while it shows (jumps land under it).
 				const line =
-					(document.querySelector("[data-back-pill] button")?.getBoundingClientRect()
-						.bottom ??
+					(document
+						.querySelector("[data-back-pill] button")
+						?.getBoundingClientRect().bottom ??
 						stick.current?.getBoundingClientRect().bottom ??
 						104) + 40;
 				for (const el of document.querySelectorAll<HTMLElement>("[data-spy]"))
@@ -715,7 +745,11 @@ export function Pack({ data }: { data: PackData }) {
 	return (
 		<div
 			className="pack-shell min-h-screen"
-			style={{ "--pane": paneW ? `${paneW}px` : "min(36vw,680px)" } as React.CSSProperties}
+			style={
+				{
+					"--pane": paneW ? `${paneW}px` : "min(36vw,680px)",
+				} as React.CSSProperties
+			}
 		>
 			<header className="no-print sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-line bg-surface px-5">
 				<ProtocolMenu current={entry.id} protocols={data.protocols} />
@@ -730,7 +764,10 @@ export function Pack({ data }: { data: PackData }) {
 					<p className="truncate text-[13px] text-muted">
 						{[
 							spec.doc.date
-								? formatVersion(spec.doc.version).replace(/\s*\([^)]*\)$/, "")
+								? formatVersion(spec.doc.version).replace(
+										/\s*\([^)]*\)$/,
+										"",
+									)
 								: formatVersion(spec.doc.version),
 							formatDate(spec.doc.date),
 							data.hospital.name,
@@ -827,7 +864,10 @@ export function Pack({ data }: { data: PackData }) {
 						<SpineBar
 							sections={toc
 								.filter((t) => t.id !== "check")
-								.map((t) => ({ id: t.id, label: SPINE[t.id] ?? t.label }))}
+								.map((t) => ({
+									id: t.id,
+									label: SPINE[t.id] ?? t.label,
+								}))}
 							paths={paths}
 							path={path}
 							setPath={setPath}
@@ -913,7 +953,11 @@ export function Pack({ data }: { data: PackData }) {
 
 						{sheet.risk.length > 0 && (
 							<SheetSection id="risk" title="Risk groups">
-								<PathChips paths={paths} path={path} setPath={setPath} />
+								<PathChips
+									paths={paths}
+									path={path}
+									setPath={setPath}
+								/>
 								{sheet.risk.map((n) => (
 									<Block
 										key={n.id}
@@ -929,13 +973,18 @@ export function Pack({ data }: { data: PackData }) {
 						{sheet.steps.length > 0 && (
 							<SheetSection id="treatment" title="Treatment">
 								{sheet.risk.length === 0 && (
-									<PathChips paths={paths} path={path} setPath={setPath} />
+									<PathChips
+										paths={paths}
+										path={path}
+										setPath={setPath}
+									/>
 								)}
 								<TreatmentMap
 									steps={sheet.steps}
 									byId={byId}
 									edges={spec.edges}
 									paths={paths}
+									treatment={spec.treatment}
 									spy={
 										sheet.steps.some((s) => s.id === spy)
 											? spy
@@ -994,14 +1043,16 @@ export function Pack({ data }: { data: PackData }) {
 														placed={placed}
 													/>
 												)}
-												{(sheet.before.get(s.id) ?? []).map((d) => (
-													<Decision
-														key={d.id}
-														node={d}
-														ctx={ctx}
-														placed={placed}
-													/>
-												))}
+												{(sheet.before.get(s.id) ?? []).map(
+													(d) => (
+														<Decision
+															key={d.id}
+															node={d}
+															ctx={ctx}
+															placed={placed}
+														/>
+													),
+												)}
 												<Step
 													step={s}
 													spec={spec}
@@ -1018,12 +1069,12 @@ export function Pack({ data }: { data: PackData }) {
 										return <div key={run.key}>{body}</div>;
 									const names = [
 										...new Set(
-											run.steps.map(
-												({ s }) => {
-													const a = arms.find((x) => x.steps.includes(s));
-													return a ? armName(a, paths) : "";
-												},
-											),
+											run.steps.map(({ s }) => {
+												const a = arms.find((x) =>
+													x.steps.includes(s),
+												);
+												return a ? armName(a, paths) : "";
+											}),
 										),
 									].filter(Boolean);
 									// Other groups' steps stay on the sheet, folded and faded.
@@ -1041,15 +1092,15 @@ export function Pack({ data }: { data: PackData }) {
 												<span className="shrink-0">
 													Not on the {path.label} path:{" "}
 													{run.steps.length}{" "}
-													{run.steps.length === 1 ? "step" : "steps"}
+													{run.steps.length === 1
+														? "step"
+														: "steps"}
 												</span>
 												<span className="truncate text-faint">
 													{names.join(", ")}
 												</span>
 											</summary>
-											<div className="px-3 pb-2">
-												{body}
-											</div>
+											<div className="px-3 pb-2">{body}</div>
 										</details>
 									);
 								})}
@@ -1228,15 +1279,27 @@ export function Pack({ data }: { data: PackData }) {
 							const el = e.currentTarget;
 							const now = Date.now();
 							if (now - lastFlip < 450 || Math.abs(e.deltaY) < 8) return;
-							const last = pane.sha ? Number.POSITIVE_INFINITY : spec.doc.pageCount;
-							if (e.deltaY > 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 2 && pane.page < last) {
+							const last = pane.sha
+								? Number.POSITIVE_INFINITY
+								: spec.doc.pageCount;
+							if (
+								e.deltaY > 0 &&
+								el.scrollTop + el.clientHeight >= el.scrollHeight - 2 &&
+								pane.page < last
+							) {
 								lastFlip = now;
 								setPane((p) => p && { ...p, page: p.page + 1 });
 								requestAnimationFrame(() => el.scrollTo({ top: 0 }));
-							} else if (e.deltaY < 0 && el.scrollTop <= 1 && pane.page > 1) {
+							} else if (
+								e.deltaY < 0 &&
+								el.scrollTop <= 1 &&
+								pane.page > 1
+							) {
 								lastFlip = now;
 								setPane((p) => p && { ...p, page: p.page - 1 });
-								requestAnimationFrame(() => el.scrollTo({ top: el.scrollHeight }));
+								requestAnimationFrame(() =>
+									el.scrollTo({ top: el.scrollHeight }),
+								);
 							}
 						}}
 					>
@@ -1439,7 +1502,11 @@ function NodeBody({
 				if (empty) return null;
 				const childList = asList || CHECKLIST_TITLE.test(c.title);
 				return (
-					<div key={c.id} id={`n-${c.id}`} className="mt-5 scroll-mt-(--stick)">
+					<div
+						key={c.id}
+						id={`n-${c.id}`}
+						className="mt-5 scroll-mt-(--stick)"
+					>
 						<h4
 							className={`mb-1 px-3 font-semibold text-balance ${depth === 0 ? "text-lg" : "text-base"}`}
 						>
@@ -1537,7 +1604,11 @@ function PhaseOverviews({
 	return (
 		<>
 			{empty.map((p) => (
-				<span key={p.id} id={`n-${p.id}`} className="block scroll-mt-(--stick)" />
+				<span
+					key={p.id}
+					id={`n-${p.id}`}
+					className="block scroll-mt-(--stick)"
+				/>
 			))}
 			{full.length > 0 && (
 				<details className="group/ov mb-8 rounded-lg border border-line bg-surface">
@@ -1547,15 +1618,24 @@ function PhaseOverviews({
 							aria-hidden
 							className="shrink-0 self-center transition-transform group-open/ov:rotate-90 motion-reduce:transition-none"
 						/>
-						<span className="shrink-0 font-medium whitespace-nowrap">Phase overviews</span>
-						<span className="shrink-0 text-muted tabular-nums">{full.length}</span>
+						<span className="shrink-0 font-medium whitespace-nowrap">
+							Phase overviews
+						</span>
+						<span className="shrink-0 text-muted tabular-nums">
+							{full.length}
+						</span>
 						<span className="min-w-0 truncate text-muted">
 							{full.map((p) => splitNumber(p.title)[1]).join(", ")}
 						</span>
 					</summary>
 					<div className="border-t border-line px-4 pb-4 [&>div]:mt-5 [&>div]:mb-0">
 						{full.map((p) => (
-							<PhaseHeading key={p.id} phase={p} ctx={ctx} placed={placed} />
+							<PhaseHeading
+								key={p.id}
+								phase={p}
+								ctx={ctx}
+								placed={placed}
+							/>
 						))}
 					</div>
 				</details>
@@ -1584,7 +1664,9 @@ function PhaseHeading({
 		body.some((c) => c.kind === "figure" || c.figures?.length);
 	return (
 		<div id={`n-${phase.id}`} className="mt-10 mb-4 scroll-mt-(--stick)">
-			<h3 className="text-xl font-semibold text-ink"><Title node={phase} /></h3>
+			<h3 className="text-xl font-semibold text-ink">
+				<Title node={phase} />
+			</h3>
 			<Rules rules={ctx.rules.get(phase.id)} hospital={ctx.hospital.name} />
 			{hasText && (
 				<details className="group mt-1" open={hasFigure}>
@@ -1751,7 +1833,10 @@ function workupLists(all: Item[]): { intro: Item; items: Item[] }[] {
 			run = null;
 		} else if (NUMBERED.test(tx)) {
 			cur = null;
-			if (!run) out.push((run = { intro: { ...it, a: { ...it.a, text: "" } }, items: [] }));
+			if (!run)
+				out.push(
+					(run = { intro: { ...it, a: { ...it.a, text: "" } }, items: [] }),
+				);
 			run.items.push(it);
 		} else cur = run = null;
 	}
@@ -1954,7 +2039,9 @@ function Diagnostics({
 				nodes.map((n) => (
 					<div key={n.id} className="mb-6">
 						{nodes.length > 1 && (
-							<h3 className="mb-2 text-xl font-semibold"><Title node={n} /></h3>
+							<h3 className="mb-2 text-xl font-semibold">
+								<Title node={n} />
+							</h3>
 						)}
 						<NodeBody
 							node={n}
@@ -2261,10 +2348,7 @@ function Step({
 						)}
 
 						{hasText && (
-							<details
-								className="group mt-3"
-								
-							>
+							<details className="group mt-3">
 								<summary className="cursor-pointer list-none text-[15px] text-accent hover:underline">
 									<ChevronRight
 										size={15}
@@ -2409,9 +2493,17 @@ function tidyTitle(t: string): string {
 }
 
 const MORE_GROUPS: { kind: Node["kind"]; label: string; icon: React.ReactNode }[] = [
-	{ kind: "eligibility", label: "Eligibility", icon: <ClipboardCheck size={17} aria-hidden /> },
+	{
+		kind: "eligibility",
+		label: "Eligibility",
+		icon: <ClipboardCheck size={17} aria-hidden />,
+	},
 	{ kind: "drug_info", label: "Drugs", icon: <Pill size={17} aria-hidden /> },
-	{ kind: "schedule", label: "Schedules", icon: <CalendarDays size={17} aria-hidden /> },
+	{
+		kind: "schedule",
+		label: "Schedules",
+		icon: <CalendarDays size={17} aria-hidden />,
+	},
 ];
 
 /** Eligibility, drug descriptions and schedules: grouped by kind, drugs A to Z, each folded until opened. */
@@ -2427,7 +2519,10 @@ function Collapsed({
 	const ids = new Set(nodes.map((n) => n.id));
 	// A bare container heading ("Appendix IX drug descriptions") whose sections are listed anyway adds nothing.
 	const rows = nodes.filter(
-		(n) => n.blocks.length || n.figures?.length || !nodes.some((m) => m.parent === n.id),
+		(n) =>
+			n.blocks.length ||
+			n.figures?.length ||
+			!nodes.some((m) => m.parent === n.id),
 	);
 	for (const n of nodes) if (!rows.includes(n) && ids.has(n.id)) placed.add(n.id);
 	return (
@@ -2438,7 +2533,8 @@ function Collapsed({
 					// Drugs A to Z; an appendix's own intro ("Appendix IX drug descriptions") after them.
 					mine.sort(
 						(a, b) =>
-							Number(/^appendix/i.test(a.title)) - Number(/^appendix/i.test(b.title)) ||
+							Number(/^appendix/i.test(a.title)) -
+								Number(/^appendix/i.test(b.title)) ||
 							tidyTitle(a.title).localeCompare(tidyTitle(b.title)),
 					);
 				if (!mine.length) return null;
@@ -2468,7 +2564,12 @@ function Collapsed({
 												rules={ctx.rules.get(n.id)}
 												hospital={ctx.hospital.name}
 											/>
-											<NodeBody node={n} ctx={ctx} depth={0} placed={placed} />
+											<NodeBody
+												node={n}
+												ctx={ctx}
+												depth={0}
+												placed={placed}
+											/>
 										</div>
 									</details>
 								);
@@ -2502,8 +2603,7 @@ function restoreUnits(text: string): string {
  * Checklists re-sort a protocol's numbered list across steps, so its numbers ("4.", "7)") read as gaps:
  * drop a single-level list marker before a word. Never a decimal: "1.8 Gy" and "2.5 MBq" are doses.
  */
-const unnumber = (t: string) =>
-	t.replace(/^\d{1,2}[.)]\s+(?=[A-Z][a-z])/, "");
+const unnumber = (t: string) => t.replace(/^\d{1,2}[.)]\s+(?=[A-Z][a-z])/, "");
 
 /** Reflow the PDF's hard line wraps for reading; keep breaks before list markers. Words are untouched. */
 const display = (t: string) =>
@@ -2574,12 +2674,23 @@ function checklistRows(items: Item[], lang: ProtoLang = "orig"): Item[] {
 		const parts = i.a.text.split(/\n(?=[•●▪◦■□♦◆►▸➢➤✓✔]\s)/);
 		return parts.length < 2
 			? [i]
-			: parts.map((text) => ({ ...i, a: { ...i.a, text }, target: i.target ?? i.a }));
+			: parts.map((text) => ({
+					...i,
+					a: { ...i.a, text },
+					target: i.target ?? i.a,
+				}));
 	});
 	return split.flatMap((i, k, items) => {
 		const t = i.a.text;
 		if (!t.trim() || isEcho(t, items, k)) return [];
-		if (i.a.role || isHeading(t) || isItem(t) || !THRESHOLD.test(t) || summaryOf(i.a, lang)) return [i];
+		if (
+			i.a.role ||
+			isHeading(t) ||
+			isItem(t) ||
+			!THRESHOLD.test(t) ||
+			summaryOf(i.a, lang)
+		)
+			return [i];
 		const parts = t.split(/(?<=[.!?])\s+(?=[A-Z])/);
 		if (parts.length < 2) return [i];
 		return parts.map((text) => ({
@@ -2608,7 +2719,10 @@ function useSay() {
 	return (a: Anchor, fmt: (t: string) => string = display) => {
 		const s = summaryOf(a, lang);
 		return s
-			? { text: restoreUnits(s), orig: `${display(a.text)}\n\nOriginal, page ${a.page}` }
+			? {
+					text: restoreUnits(s),
+					orig: `${display(a.text)}\n\nOriginal, page ${a.page}`,
+				}
 			: { text: fmt(a.text), orig: undefined };
 	};
 }
@@ -2642,13 +2756,17 @@ function depths(anchors: Anchor[]): number[] {
 	const edges: number[] = [];
 	for (const a of anchors) {
 		const v = x(a);
-		if (v !== undefined && item(a) && !edges.some((e) => Math.abs(e - v) < 6)) edges.push(v);
+		if (v !== undefined && item(a) && !edges.some((e) => Math.abs(e - v) < 6))
+			edges.push(v);
 	}
 	edges.sort((a, b) => a - b);
 	return anchors.map((a) => {
 		const v = x(a);
 		if (v === undefined || !item(a)) return 0;
-		return Math.min(5, edges.findIndex((e) => Math.abs(e - v) < 6));
+		return Math.min(
+			5,
+			edges.findIndex((e) => Math.abs(e - v) < 6),
+		);
 	});
 }
 
@@ -2671,7 +2789,11 @@ function Lines({ node, ctx }: { node: Node; ctx: Ctx }) {
 						data-anchor={lineKey(a)}
 						onClick={() => ctx.show(a, a.page, node.id)}
 						title={say(a).orig ?? `Show on page ${a.page}`}
-						style={depth[i] ? { paddingLeft: `${0.75 + depth[i] * 1.5}rem` } : undefined}
+						style={
+							depth[i]
+								? { paddingLeft: `${0.75 + depth[i] * 1.5}rem` }
+								: undefined
+						}
 						className={`group/row flex w-full items-start gap-3 rounded-md px-3 py-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${on ? "bg-mark/70" : "hover:bg-surface"}`}
 					>
 						{bullet ? (
@@ -2751,7 +2873,13 @@ function Checklist({
 							<li
 								key={`${key}-${k}`}
 								data-anchor={key}
-								style={depth[k] ? { paddingLeft: `${0.75 + depth[k] * 1.75}rem` } : undefined}
+								style={
+									depth[k]
+										? {
+												paddingLeft: `${0.75 + depth[k] * 1.75}rem`,
+											}
+										: undefined
+								}
 								className={`group/row flex items-start gap-2 rounded-md px-3 py-1 text-[16px] leading-relaxed text-ink/90 transition-colors ${on ? "bg-mark/70" : "hover:bg-paper/70"}`}
 							>
 								<button
@@ -2787,7 +2915,11 @@ function Checklist({
 						<li
 							key={`${key}-${k}`}
 							data-anchor={key}
-							style={depth[k] ? { paddingLeft: `${0.5 + depth[k] * 1.75}rem` } : undefined}
+							style={
+								depth[k]
+									? { paddingLeft: `${0.5 + depth[k] * 1.75}rem` }
+									: undefined
+							}
 							className={`group/row flex flex-wrap items-start gap-x-2.5 gap-y-0.5 rounded-md px-2 py-1 transition-colors ${on ? "bg-mark/70" : "hover:bg-paper/70"}`}
 						>
 							<button
@@ -2851,7 +2983,9 @@ function Checklist({
 												aria-hidden
 												className="mt-[3px] shrink-0 text-accent"
 											/>
-											<span className="min-w-0 italic">{note}</span>
+											<span className="min-w-0 italic">
+												{note}
+											</span>
 										</button>
 									</div>
 								)
@@ -3096,23 +3230,25 @@ function StepToc({
 }: {
 	steps: Node[];
 	byId: Map<string, Node>;
-	/** Arm names (the induction trunk under a generic parent reads "Induction"). */
+	/** The treatment arms: the groups and their names. */
 	arms?: Arm[];
 	spy: string | null;
 	status?: (id: string) => "done" | "current" | undefined;
 	/** Steps off the chosen risk-group path. */
 	dim?: (id: string) => boolean;
 }) {
+	// Grouped like the treatment map's tabs: by arm, else by parent section.
+	const armOf = new Map(arms?.flatMap((a) => a.steps.map((s) => [s.id, a] as const)));
 	const groups: { key: string; label: string; steps: Node[] }[] = [];
 	for (const s of steps) {
-		const key = s.parent ?? "";
-		const last = groups.at(-1);
-		if (last && last.key === key) last.steps.push(s);
+		const arm = armOf.get(s.id);
+		const key = arm?.key ?? s.parent ?? "";
+		const same = arm ? groups.find((g) => g.key === key) : groups.at(-1);
+		if (same && same.key === key) same.steps.push(s);
 		else
 			groups.push({
 				key,
-				label:
-					arms?.find((a) => a.key === key)?.label ?? byId.get(key)?.title ?? "",
+				label: arm?.short || arm?.label || byId.get(key)?.title || "",
 				steps: [s],
 			});
 	}

@@ -10,7 +10,7 @@
  * Node references are a 5-character hash of the node id, so a code stays short and still resolves on a
  * later version where the section kept its heading.
  */
-import type { Anchor, Edge, Node } from "@bspho/protocol/spec";
+import type { Anchor, Edge, Node, Treatment } from "@bspho/protocol/spec";
 
 export const DELAY_REASONS = [
 	"count recovery",
@@ -106,6 +106,7 @@ const strs = (v: unknown): string[] =>
 export function decodeCase(
 	raw: string,
 	nodes: Node[],
+	treatment?: Treatment,
 ): { state: CaseState; dropped: number } | { error: string } {
 	const text = raw.trim();
 	const m = /(?:case=)?([a-z0-9][a-z0-9-]*)\.([0-9a-f]{8})\.([A-Za-z0-9_-]+)/.exec(
@@ -123,7 +124,12 @@ export function decodeCase(
 	} catch {
 		return { error: "The case code is damaged (copy it again from the EHR note)." };
 	}
-	const byRef = new Map(nodes.map((n) => [ref(n.id), n.id]));
+	const ids = [
+		...nodes.map((n) => n.id),
+		...(treatment?.arms.map((a) => a.id) ?? []),
+		...(treatment?.riskGroups.map((g) => g.id) ?? []),
+	];
+	const byRef = new Map(ids.map((x) => [ref(x), x]));
 	let dropped = 0;
 	const id = (r: unknown) => {
 		if (typeof r !== "string") return undefined;
@@ -196,7 +202,8 @@ export function requirementLines(stepId: string, nodes: Node[]): Anchor[] {
 /** Same rule as the sheet's checklist: list items and short criteria are tickable, prose is not. */
 const isItem = (t: string) => {
 	const x = t.trim();
-	if (/^(?:[•●▪◦■□♦◆►▸➢➤✓✔\-–\uf0b7\uf0a7]|o\s|\(?[a-z0-9]{1,2}[.)]\s)/i.test(x)) return true;
+	if (/^(?:[•●▪◦■□♦◆►▸➢➤✓✔\-–\uf0b7\uf0a7]|o\s|\(?[a-z0-9]{1,2}[.)]\s)/i.test(x))
+		return true;
 	return x.length <= 140 && (x.match(/[.!?](\s|$)/g)?.length ?? 0) <= 1;
 };
 
@@ -210,10 +217,37 @@ export interface ArmOption {
 }
 
 /** Risk groups (with their verbatim criteria), then the arms/phases that group treatment steps. */
-export function armOptions(nodes: Node[], edges: Edge[]): ArmOption[] {
+export function armOptions(
+	nodes: Node[],
+	edges: Edge[],
+	treatment?: Treatment,
+): ArmOption[] {
 	const byId = new Map(nodes.map((n) => [n.id, n]));
 	const steps = nodes.filter((n) => n.kind === "step");
 	const roots = flowRoots(steps, edges);
+	if (treatment) {
+		const rules = treatment.riskGroups.map((g) => {
+			const rule = g.rule ? byId.get(g.rule) : undefined;
+			return {
+				id: g.id,
+				label: g.title,
+				source: "risk_group" as const,
+				criteria: rule ? criteriaOf(rule) : [],
+				firstStep: g.steps[0] ?? roots[0],
+			};
+		});
+		const arms = treatment.arms.map((a) => {
+			const p = a.node ? byId.get(a.node) : undefined;
+			return {
+				id: a.id,
+				label: a.title,
+				source: "arm" as const,
+				criteria: p ? criteriaOf(p) : [],
+				firstStep: a.steps[0],
+			};
+		});
+		return [...rules, ...arms];
+	}
 	const out: ArmOption[] = nodes
 		.filter((n) => n.kind === "risk_group")
 		.map((n) => ({
@@ -288,6 +322,20 @@ export interface LineNote {
 	note: string;
 }
 
+/** A case arm id's name and source section: a risk group (its defining section), a treatment arm (its phase) or a node. */
+export function armSource(
+	id: string,
+	byId: Map<string, Node>,
+	treatment?: Treatment,
+): { title: string; node?: Node } {
+	const g = treatment?.riskGroups.find((x) => x.id === id);
+	if (g) return { title: g.title, node: g.rule ? byId.get(g.rule) : undefined };
+	const a = treatment?.arms.find((x) => x.id === id);
+	if (a) return { title: a.title, node: a.node ? byId.get(a.node) : undefined };
+	const n = byId.get(id);
+	return { title: n?.title ?? id, node: n };
+}
+
 /* ------------------------------------------------------------------ EHR text */
 
 export function ehrSummary(opts: {
@@ -296,6 +344,7 @@ export function ehrSummary(opts: {
 	link: string;
 	protocol: { short: string; version: string; sha: string };
 	byId: Map<string, Node>;
+	treatment?: Treatment;
 	edges: Edge[];
 	reqLines: Anchor[];
 	hospital: string;
@@ -306,14 +355,17 @@ export function ehrSummary(opts: {
 }): string {
 	const { state: c, byId } = opts;
 	const t = (id?: string) => (id ? (byId.get(id)?.title ?? id) : "none");
-	const arm = c.arm ? byId.get(c.arm) : undefined;
+	const src = c.arm ? armSource(c.arm, byId, opts.treatment) : undefined;
+	const arm = src?.node;
 	const crit = arm ? criteriaOf(arm).filter((_, i) => c.why.includes(i)) : [];
 	const L: string[] = [];
 	L.push(
 		`Protocol: ${opts.protocol.short}, version ${opts.protocol.version} (PDF ${opts.protocol.sha.slice(0, 8)})`,
 	);
 	if (opts.publishedNote) L.push(opts.publishedNote);
-	L.push(`Arm / risk group: ${t(c.arm)}${arm ? ` (p. ${arm.pages.from})` : ""}`);
+	L.push(
+		`Arm / risk group: ${src?.title ?? "none"}${arm ? ` (p. ${arm.pages.from})` : ""}`,
+	);
 	if (crit.length)
 		for (const a of crit)
 			L.push(`  criterion ticked: "${clip(quote(a))}" (p. ${a.page})`);
@@ -365,7 +417,9 @@ export function ehrSummary(opts: {
 	if (opts.notes?.length) {
 		L.push("Notes on protocol lines:");
 		for (const n of opts.notes)
-			L.push(`  "${clip(n.line.replace(/\s+/g, " ").trim(), 90)}" (p. ${n.page}): ${n.note}`);
+			L.push(
+				`  "${clip(n.line.replace(/\s+/g, " ").trim(), 90)}" (p. ${n.page}): ${n.note}`,
+			);
 	}
 	L.push(
 		"Ticks are the clinician's own; the app computes no eligibility and stores nothing.",
