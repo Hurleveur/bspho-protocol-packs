@@ -1307,8 +1307,12 @@ export async function treatmentModel(
 					: null,
 		});
 	}
-	// One group is no choice: a filter needs two paths.
-	return { model, arms, riskGroups: riskGroups.length >= 2 ? riskGroups : [] };
+	// Groups with the same steps cannot be told apart on the sheet, and one group is no choice.
+	const key = (g: Treatment["riskGroups"][number]) => [...g.steps].sort().join(" ");
+	const distinct = riskGroups.filter(
+		(g) => riskGroups.filter((h) => key(h) === key(g)).length === 1,
+	);
+	return { model, arms, riskGroups: distinct.length >= 2 ? distinct : [] };
 }
 
 async function label(title: string, sections: Section[]) {

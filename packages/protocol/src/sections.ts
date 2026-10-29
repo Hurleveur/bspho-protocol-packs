@@ -29,7 +29,7 @@ export interface Section {
 	endPage: number;
 }
 
-const NUMBERED = /^((?:\d{1,2}|[A-Z])(?:\.\d{1,2}){0,4})\.?\)?\s+(\S.*)$/;
+const NUMBERED = /^((?:\d{1,2}|[A-Z])(?:\.\d{1,2}){0,4})\.?\)?(?:\s+[-–—:])?\s+(\S.*)$/;
 const APPENDIX =
 	/^(?:appendix|annex|annexe|chapter|section|part)\s+[A-Z0-9IVX]{1,5}\b/i;
 const PAGE_NO = /^(?:page\s*)?\d+(?:\s*(?:of|\/|von)\s*\d+)?$/i;
