@@ -73,6 +73,8 @@ export const INSTRUCTIONS = [
 	"- A paragraph that states content and then introduces a list ('Induction consists of the following drugs:', 'is defined as:') is a rule; a one-sentence intro is a heading.",
 	"- A bold run-in heading on the same line as its sentence ('Medical history at diagnosis includes ...') takes the role of the sentence.",
 	"- Choose-one categories (diagnostic groups, strata) and lists of acceptable options (contraception methods) are rules, not items: nobody ticks all of them.",
+	"- A sentence that asks for one action or gives one drug and dose ('Temozolomide is administered orally at 100 mg/m2 ...', 'Sperm storage is recommended for male patients') is an item; a sentence about when, why or how a decision is made is a rule.",
+	"- A lone 'or' / 'and' line between two alternatives stays in the block above it.",
 	"- Cross-references ('Please refer to ...', 'See section ...') are prose.",
 	"depth counts list nesting only, never headings: the items of a list directly under a heading or list intro are depth 0 (the intro does not add a level); sub-items indented under an item are 1; their sub-items 2. Rules and prose are depth 0 unless they sit inside an item's sub-list.",
 	"Return every section of the input, with block starts that are line ids of that section, in increasing order, the first one being the section's first line.",

@@ -8,8 +8,9 @@
  *   bun scripts/eval/segments.ts --model flash       flash chain; --model pro forces the pro chain
  *   bun scripts/eval/segments.ts --runs 3            repeat; mismatches ranked by how often they recur
  *   bun scripts/eval/segments.ts far-rms hlh-2004    some protocols (or section ids "far-rms#9")
+ *   bun scripts/eval/segments.ts --fixture store/eval/segments-holdout.json   another labelled set
  *
- * Writes store/eval/segments-report.json. The fixture holds protocol text: it stays in store/.
+ * Writes store/eval/segments-report.json (another fixture: <its name>-report.json next to it). The fixture holds protocol text: it stays in store/.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -35,6 +36,10 @@ const opt = (k: string) => {
 };
 const model = opt("--model");
 const RUNS = Number(opt("--runs") ?? 1);
+const FIXTURE = opt("--fixture") ?? join(EVAL, "segments-fixture.json");
+const REPORT = FIXTURE.endsWith("segments-fixture.json")
+	? join(EVAL, "segments-report.json")
+	: FIXTURE.replace(/\.json$/, "-report.json");
 const filter = args.filter((a) => !a.startsWith("--"));
 // build.ts reads PIPELINE_MODEL once at load: set it before the import.
 if (model === "flash") process.env.PIPELINE_MODEL = "flash";
@@ -71,9 +76,9 @@ interface Mismatch {
 	got: string;
 }
 
-const fixture = JSON.parse(
-	readFileSync(join(EVAL, "segments-fixture.json"), "utf8"),
-) as { sections: FixtureSection[] };
+const fixture = JSON.parse(readFileSync(FIXTURE, "utf8")) as {
+	sections: FixtureSection[];
+};
 const sections = fixture.sections.filter(
 	(s) => !filter.length || filter.includes(s.protocol) || filter.includes(s.id),
 );
@@ -346,7 +351,7 @@ for (const m of ranked.slice(0, 25))
 	);
 
 writeFileSync(
-	join(EVAL, "segments-report.json"),
+	REPORT,
 	JSON.stringify(
 		{
 			at: new Date().toISOString(),
@@ -360,4 +365,4 @@ writeFileSync(
 		"\t",
 	),
 );
-console.log(`\nwrote store/eval/segments-report.json`);
+console.log(`\nwrote ${REPORT}`);
