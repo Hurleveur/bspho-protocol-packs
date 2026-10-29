@@ -15,8 +15,19 @@ const COUNT_UNIT = /[x×]\s*10\s*(?:\^|\s)?\s*(?:9|⁹)\s*\/\s*l\b/g;
 const NUMBER = /(?<![\d.,])\d+(?:[.,]\d+)?(?!\d)/g;
 
 export function normalize(s: string): string {
-	let t = s.normalize("NFKC").replace(/(\w)-\s*\n\s*(\w)/g, "$1$2").replace(JUNK, " ");
-	for (const [a, b] of [["’", "'"], ["‘", "'"], ["“", '"'], ["”", '"'], ["–", "-"], ["—", "-"], ["…", "..."]] as const) {
+	let t = s
+		.normalize("NFKC")
+		.replace(/(\w)-\s*\n\s*(\w)/g, "$1$2")
+		.replace(JUNK, " ");
+	for (const [a, b] of [
+		["’", "'"],
+		["‘", "'"],
+		["“", '"'],
+		["”", '"'],
+		["–", "-"],
+		["—", "-"],
+		["…", "..."],
+	] as const) {
 		t = t.replaceAll(a, b);
 	}
 	return t.replace(/\s+/g, " ").trim().toLowerCase().replace(COUNT_UNIT, "x10^9/l");
@@ -24,7 +35,9 @@ export function normalize(s: string): string {
 
 /** Numbers in a normalized string, ignoring the exponent in the count unit. */
 export function numbers(s: string): string[] {
-	return (s.replaceAll("x10^9/l", " ").match(NUMBER) ?? []).map((n) => n.replace(",", "."));
+	return (s.replaceAll("x10^9/l", " ").match(NUMBER) ?? []).map((n) =>
+		n.replace(",", "."),
+	);
 }
 
 /** Similarity ratio (2*matches / total) via longest common subsequence on characters; strings here are short. */
@@ -34,7 +47,8 @@ function ratio(a: string, b: string): number {
 	const cur = new Uint16Array(b.length + 1);
 	for (let i = 1; i <= a.length; i++) {
 		for (let j = 1; j <= b.length; j++) {
-			cur[j] = a[i - 1] === b[j - 1] ? prev[j - 1] + 1 : Math.max(prev[j], cur[j - 1]);
+			cur[j] =
+				a[i - 1] === b[j - 1] ? prev[j - 1] + 1 : Math.max(prev[j], cur[j - 1]);
 		}
 		prev.set(cur);
 	}
@@ -42,17 +56,25 @@ function ratio(a: string, b: string): number {
 }
 
 /** Best ratio of q against a contiguous window of t of about the same length, anchored on shared 8-grams. */
-function bestWindow(q: string, t: string): { score: number; start: number; passage: string } {
+function bestWindow(
+	q: string,
+	t: string,
+): { score: number; start: number; passage: string } {
 	const exact = t.indexOf(q);
 	if (exact >= 0) return { score: 1, start: exact, passage: q };
 	const starts = new Set<number>();
 	for (let k = 0; k + 8 <= q.length; k += 4) {
 		const gram = q.slice(k, k + 8);
-		for (let i = t.indexOf(gram); i >= 0; i = t.indexOf(gram, i + 1)) starts.add(Math.max(0, i - k));
+		for (let i = t.indexOf(gram); i >= 0; i = t.indexOf(gram, i + 1))
+			starts.add(Math.max(0, i - k));
 	}
 	let best = { score: 0, start: -1, passage: "" };
 	for (const s of starts) {
-		for (const w of [q.length, Math.round(q.length * 1.1), Math.round(q.length * 0.9)]) {
+		for (const w of [
+			q.length,
+			Math.round(q.length * 1.1),
+			Math.round(q.length * 0.9),
+		]) {
 			const win = t.slice(s, s + w);
 			const r = ratio(win, q);
 			if (r > best.score) best = { score: r, start: s, passage: win };
@@ -73,7 +95,10 @@ export function locate(quote: string, pageText: string): Located {
 	const q = normalize(quote);
 	const t = normalize(pageText);
 	if (!q || !t) return { score: 0, verified: false, passage: "" };
-	const segs = q.split(/\.{3,}/).map((s) => s.trim()).filter(Boolean);
+	const segs = q
+		.split(/\.{3,}/)
+		.map((s) => s.trim())
+		.filter(Boolean);
 	let score: number;
 	let passage: string;
 	if (segs.length > 1) {
@@ -83,7 +108,8 @@ export function locate(quote: string, pageText: string): Located {
 		for (const seg of segs) {
 			const rest = t.slice(pos);
 			const w = bestWindow(seg, rest);
-			if (w.start < 0 || (parts.length && w.start > 600)) return { score: 0, verified: false, passage: "" };
+			if (w.start < 0 || (parts.length && w.start > 600))
+				return { score: 0, verified: false, passage: "" };
 			scores.push(w.score);
 			parts.push(w.passage);
 			pos += w.start + w.passage.length;
@@ -95,5 +121,9 @@ export function locate(quote: string, pageText: string): Located {
 	}
 	const qn = numbers(q).sort().join("|");
 	const numbersOk = qn === "" || qn === numbers(passage).sort().join("|");
-	return { score: Math.round(score * 1000) / 1000, verified: score >= MIN_SCORE && numbersOk, passage };
+	return {
+		score: Math.round(score * 1000) / 1000,
+		verified: score >= MIN_SCORE && numbersOk,
+		passage,
+	};
 }

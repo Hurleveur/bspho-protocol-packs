@@ -14,13 +14,35 @@ import { generateText, Output } from "../../packages/protocol/node_modules/ai";
 import { z } from "../../packages/protocol/node_modules/zod";
 import { renderPage, renderRegion } from "@bspho/protocol/pdf";
 import type { Node } from "@bspho/protocol/spec";
-import { BULLET, diagItems, type Issue, isHeadingLine, isItem, isListItem, type Loaded, load, registry, runChecks, sameTitle, STORE, tree } from "./checks.ts";
+import {
+	BULLET,
+	diagItems,
+	type Issue,
+	isHeadingLine,
+	isItem,
+	isListItem,
+	type Loaded,
+	load,
+	registry,
+	runChecks,
+	sameTitle,
+	STORE,
+	tree,
+} from "./checks.ts";
 
 (globalThis as { AI_SDK_LOG_WARNINGS?: boolean }).AI_SDK_LOG_WARNINGS = false;
 const PROJECT = process.env.GOOGLE_CLOUD_PROJECT ?? "qwiklabs-gcp-01-ce74ae98024d";
 const MODELS = [
-	{ location: "global", model: "gemini-3.1-pro-preview", thinking: { thinkingLevel: "high" } },
-	{ location: "europe-west1", model: "gemini-2.5-pro", thinking: { thinkingBudget: 8192 } },
+	{
+		location: "global",
+		model: "gemini-3.1-pro-preview",
+		thinking: { thinkingLevel: "high" },
+	},
+	{
+		location: "europe-west1",
+		model: "gemini-2.5-pro",
+		thinking: { thinkingBudget: 8192 },
+	},
 ];
 const CACHE = join(STORE, "eval", "judge-cache");
 
@@ -47,13 +69,31 @@ const Verdict = z.object({
 		.array(
 			z.object({
 				class: z.enum(JUDGE_CLASSES),
-				severity: z.enum(["high", "medium", "low"]).describe("high = a clinician could miss or misread an instruction; medium = confusing but recoverable; low = cosmetic"),
-				description: z.string().describe("One or two sentences: what the app shows wrongly compared with the page."),
-				evidence: z.string().describe("Short verbatim quote from the PDF page (not from the extraction) that shows the problem."),
-				page: z.number().int().optional().describe("PDF page the evidence is on"),
+				severity: z
+					.enum(["high", "medium", "low"])
+					.describe(
+						"high = a clinician could miss or misread an instruction; medium = confusing but recoverable; low = cosmetic",
+					),
+				description: z
+					.string()
+					.describe(
+						"One or two sentences: what the app shows wrongly compared with the page.",
+					),
+				evidence: z
+					.string()
+					.describe(
+						"Short verbatim quote from the PDF page (not from the extraction) that shows the problem.",
+					),
+				page: z
+					.number()
+					.int()
+					.optional()
+					.describe("PDF page the evidence is on"),
 			}),
 		)
-		.describe("Empty when verdict is ok. Only real extraction defects; do not critique the protocol itself."),
+		.describe(
+			"Empty when verdict is ok. Only real extraction defects; do not critique the protocol itself.",
+		),
 });
 type Verdict = z.infer<typeof Verdict>;
 
@@ -78,7 +118,12 @@ other = anything else that would mislead a clinician.`;
 export function sample(L: Loaded, flagged: Issue[], k: number): Node[] {
 	const t = tree(L.spec);
 	const flagCount = new Map<string, number>();
-	for (const i of flagged) if (i.nodeId && i.class !== "missing_start") flagCount.set(i.nodeId, (flagCount.get(i.nodeId) ?? 0) + (i.severity === "high" ? 2 : 1));
+	for (const i of flagged)
+		if (i.nodeId && i.class !== "missing_start")
+			flagCount.set(
+				i.nodeId,
+				(flagCount.get(i.nodeId) ?? 0) + (i.severity === "high" ? 2 : 1),
+			);
 	const diag = new Set(diagItems(L.spec, t).map((i) => i.node.id));
 	const scored = L.spec.nodes
 		.filter((n) => n.blocks.length >= 2 || n.figures?.length)
@@ -90,7 +135,13 @@ export function sample(L: Loaded, flagged: Issue[], k: number): Node[] {
 			if (n.figures?.length) s += 1;
 			s += Math.min(4, 1.5 * (flagCount.get(n.id) ?? 0));
 			// deterministic tie-break
-			s += (parseInt(createHash("md5").update(n.id).digest("hex").slice(0, 4), 16) / 0xffff) * 0.5;
+			s +=
+				(parseInt(
+					createHash("md5").update(n.id).digest("hex").slice(0, 4),
+					16,
+				) /
+					0xffff) *
+				0.5;
 			return { n, s };
 		})
 		.sort((a, b) => b.s - a.s);
@@ -98,7 +149,12 @@ export function sample(L: Loaded, flagged: Issue[], k: number): Node[] {
 	const kinds = new Map<string, number>();
 	while (out.length < k && scored.length) {
 		// diversity: penalise kinds already picked
-		scored.sort((a, b) => b.s - 1.5 * (kinds.get(b.n.kind) ?? 0) - (a.s - 1.5 * (kinds.get(a.n.kind) ?? 0)));
+		scored.sort(
+			(a, b) =>
+				b.s -
+				1.5 * (kinds.get(b.n.kind) ?? 0) -
+				(a.s - 1.5 * (kinds.get(a.n.kind) ?? 0)),
+		);
 		const { n } = scored.shift()!;
 		out.push(n);
 		kinds.set(n.kind, (kinds.get(n.kind) ?? 0) + 1);
@@ -110,14 +166,22 @@ export function sample(L: Loaded, flagged: Issue[], k: number): Node[] {
 
 export function represent(L: Loaded, n: Node): string {
 	const t = tree(L.spec);
-	const diag = new Map(diagItems(L.spec, t).filter((i) => i.node.id === n.id).map((i) => [i.idx, i.stage]));
+	const diag = new Map(
+		diagItems(L.spec, t)
+			.filter((i) => i.node.id === n.id)
+			.map((i) => [i.idx, i.stage]),
+	);
 	const inDiag = diag.size > 0;
 	const out: string[] = [
 		`Section title: "${n.title}"`,
 		`Breadcrumb: ${n.headingPath.join(" > ") || "(top level)"}`,
 		`Kind: ${n.kind}${n.stage ? `, section stage: ${n.stage}` : ""}   PDF pages ${n.pages.from}-${n.pages.to}`,
-		inDiag ? "Shown in the DIAGNOSIS WORK-UP, where each line is sorted into a stage: 1 primary, 2 molecular, 3 extent, 4 baseline; lines without a stage go to 'Other'." : "",
-		n.kind === "start_requirements" ? "Shown as START REQUIREMENTS of a treatment step: each line becomes a tickable chip." : "",
+		inDiag
+			? "Shown in the DIAGNOSIS WORK-UP, where each line is sorted into a stage: 1 primary, 2 molecular, 3 extent, 4 baseline; lines without a stage go to 'Other'."
+			: "",
+		n.kind === "start_requirements"
+			? "Shown as START REQUIREMENTS of a treatment step: each line becomes a tickable chip."
+			: "",
 		"",
 		"Blocks in display order (one per paragraph / list item):",
 	];
@@ -127,38 +191,73 @@ export function represent(L: Loaded, n: Node): string {
 			`p${a.page}`,
 			// (the app uses the pipeline's block role when present: item ticks, heading is a subheading, rule/prose is read)
 			a.role
-				? { item: "CHECKABLE", heading: "SUBHEADING", rule: "PROSE", prose: "PROSE" }[a.role] + (a.depth ? ` depth ${a.depth}` : "")
-				: isListItem(a.text) ? "LIST ITEM" : isHeadingLine(a.text) ? "SUBHEADING" : isItem(a.text) ? "CHECKABLE" : "PROSE",
+				? {
+						item: "CHECKABLE",
+						heading: "SUBHEADING",
+						rule: "PROSE",
+						prose: "PROSE",
+					}[a.role] + (a.depth ? ` depth ${a.depth}` : "")
+				: isListItem(a.text)
+					? "LIST ITEM"
+					: isHeadingLine(a.text)
+						? "SUBHEADING"
+						: isItem(a.text)
+							? "CHECKABLE"
+							: "PROSE",
 			inDiag ? `stage=${diag.get(i) ?? "Other"}` : "",
 		].filter(Boolean);
-		out.push(`[${i}] (${tags.join(", ")}) ${a.text.replace(BULLET, "").replace(/\n/g, " ⏎ ")}`);
+		out.push(
+			`[${i}] (${tags.join(", ")}) ${a.text.replace(BULLET, "").replace(/\n/g, " ⏎ ")}`,
+		);
 	});
 	if (!n.blocks.length) out.push("(no blocks)");
 	(n.figures ?? []).forEach((f, fi) => {
 		if (f.structure?.table && !f.raster && f.bbox) {
-			const rows = f.structure.table.rows.slice(0, 40).map((r) => `| ${r.filter((c) => !c.covered).map((c) => c.text.replace(/\n/g, " ")).join(" | ")} |`);
+			const rows = f.structure.table.rows.slice(0, 40).map(
+				(r) =>
+					`| ${r
+						.filter((c) => !c.covered)
+						.map((c) => c.text.replace(/\n/g, " "))
+						.join(" | ")} |`,
+			);
 			out.push(
 				`FIGURE #${fi + 1} p${f.page}: rendered by the app as an HTML TABLE re-typeset from the text layer (${f.structure.table.headerRows} header rows), exactly these rows/cells:`,
 				...rows,
-				f.structure.table.rows.length > 40 ? `... ${f.structure.table.rows.length} rows in total` : "",
+				f.structure.table.rows.length > 40
+					? `... ${f.structure.table.rows.length} rows in total`
+					: "",
 				`(The attached CROP #${fi + 1} image is the region the table was cut from.)`,
 			);
-		} else if (f.bbox) out.push(`FIGURE #${fi + 1} p${f.page}: shown by the app as the image in attached CROP #${fi + 1} (exactly what the clinician sees).`);
+		} else if (f.bbox)
+			out.push(
+				`FIGURE #${fi + 1} p${f.page}: shown by the app as the image in attached CROP #${fi + 1} (exactly what the clinician sees).`,
+			);
 		else out.push(`FIGURE #${fi + 1} p${f.page}: shown as the whole page image.`);
 	});
-	for (const c of t.kids.get(n.id) ?? []) out.push(`Child section: "${c.title}" (${c.kind}, p${c.pages.from})`);
+	for (const c of t.kids.get(n.id) ?? [])
+		out.push(`Child section: "${c.title}" (${c.kind}, p${c.pages.from})`);
 	return out.filter((x) => x !== "").join("\n");
 }
 
 function pagesOf(n: Node): number[] {
-	const ps = [...new Set([...n.blocks.map((b) => b.page), ...(n.figures ?? []).map((f) => f.page)])].sort((a, b) => a - b);
+	const ps = [
+		...new Set([
+			...n.blocks.map((b) => b.page),
+			...(n.figures ?? []).map((f) => f.page),
+		]),
+	].sort((a, b) => a - b);
 	return (ps.length ? ps : [n.pages.from]).slice(0, 2);
 }
 
 // ---------------------------------------------------------------- model call
 
 let degraded = false;
-async function callModel(content: ({ type: "text"; text: string } | { type: "file"; data: Uint8Array; mediaType: string })[]): Promise<{ v: Verdict; model: string }> {
+async function callModel(
+	content: (
+		| { type: "text"; text: string }
+		| { type: "file"; data: Uint8Array; mediaType: string }
+	)[],
+): Promise<{ v: Verdict; model: string }> {
 	let last: unknown;
 	for (const [mi, m] of MODELS.entries()) {
 		if (mi === 0 && degraded) continue;
@@ -221,12 +320,22 @@ export async function judgeNode(L: Loaded, n: Node): Promise<JudgeResult> {
 			1.6,
 		),
 	);
-	const figs = (n.figures ?? []).map((f, fi) => ({ fi, f })).filter(({ f }) => f.bbox);
-	const crops = figs.map(({ f }) => renderRegion(L.doc, f.page, f.bbox!.map((v) => Math.round(v)) as [number, number, number, number]));
+	const figs = (n.figures ?? [])
+		.map((f, fi) => ({ fi, f }))
+		.filter(({ f }) => f.bbox);
+	const crops = figs.map(({ f }) =>
+		renderRegion(
+			L.doc,
+			f.page,
+			f.bbox!.map((v) => Math.round(v)) as [number, number, number, number],
+		),
+	);
 	const prompt = [
 		"You audit a medical app that turns paediatric oncology protocol PDFs into consult sheets. Clinical text is copied verbatim from the PDF text layer; the risk is STRUCTURE: wrong splitting, ordering, grouping or classification of that text.",
 		`Attached: the PDF page(s) ${pages.join(", ")} of protocol ${L.short}. Text the app extracted for this section is tinted yellow on the page.`,
-		crops.length ? `Also attached, after the pages: CROP #n images, the exact figure/table crops the app displays.` : "",
+		crops.length
+			? `Also attached, after the pages: CROP #n images, the exact figure/table crops the app displays.`
+			: "",
 		"Below: the section as the app presents it. Compare it with the page and report only defects a clinician would notice: content missing, merged, misordered or mislabelled compared with the page. Judge only what the app does with the page's content in this section, not the protocol's clinical quality.",
 		"Figures: compare each CROP image against the page. A crop is 'cut off' ONLY if content of the same table/figure that is visible on the page is missing from the crop image; extra margin or a neighbouring caption is not a defect. Do not infer crop problems from coordinates. For re-typeset tables, compare the listed rows/cells with the table on the page.",
 		"Every issue must quote the page verbatim as evidence. When unsure, say ok: a false alarm costs more than a missed cosmetic issue. If the section looks faithful, answer verdict ok with no issues.",
@@ -244,23 +353,73 @@ export async function judgeNode(L: Loaded, n: Node): Promise<JudgeResult> {
 	const t0 = Date.now();
 	if (existsSync(file)) {
 		const c = JSON.parse(readFileSync(file, "utf8"));
-		return { protocol: L.id, nodeId: n.id, title: n.title, kind: n.kind, pages, ...c, cached: true, ms: 0 };
+		return {
+			protocol: L.id,
+			nodeId: n.id,
+			title: n.title,
+			kind: n.kind,
+			pages,
+			...c,
+			cached: true,
+			ms: 0,
+		};
 	}
 	try {
 		const { v, model } = await callModel([
-			...imgs.flatMap((data, i) => [{ type: "text" as const, text: `PAGE ${pages[i]} (full page):` }, { type: "file" as const, data, mediaType: "image/png" }]),
-			...crops.flatMap((data, i) => [{ type: "text" as const, text: `CROP #${figs[i].fi + 1} (figure on page ${figs[i].f.page}, as shown in the app):` }, { type: "file" as const, data, mediaType: "image/png" }]),
+			...imgs.flatMap((data, i) => [
+				{ type: "text" as const, text: `PAGE ${pages[i]} (full page):` },
+				{ type: "file" as const, data, mediaType: "image/png" },
+			]),
+			...crops.flatMap((data, i) => [
+				{
+					type: "text" as const,
+					text: `CROP #${figs[i].fi + 1} (figure on page ${figs[i].f.page}, as shown in the app):`,
+				},
+				{ type: "file" as const, data, mediaType: "image/png" },
+			]),
 			{ type: "text" as const, text: prompt },
 		]);
 		mkdirSync(CACHE, { recursive: true });
-		writeFileSync(file, JSON.stringify({ model, verdict: v.verdict, issues: v.issues }));
-		return { protocol: L.id, nodeId: n.id, title: n.title, kind: n.kind, pages, model, verdict: v.verdict, issues: v.issues, cached: false, ms: Date.now() - t0 };
+		writeFileSync(
+			file,
+			JSON.stringify({ model, verdict: v.verdict, issues: v.issues }),
+		);
+		return {
+			protocol: L.id,
+			nodeId: n.id,
+			title: n.title,
+			kind: n.kind,
+			pages,
+			model,
+			verdict: v.verdict,
+			issues: v.issues,
+			cached: false,
+			ms: Date.now() - t0,
+		};
 	} catch (e) {
-		return { protocol: L.id, nodeId: n.id, title: n.title, kind: n.kind, pages, model: "", verdict: "ok", issues: [], cached: false, ms: Date.now() - t0, error: String((e as Error)?.message ?? e).slice(0, 300) };
+		return {
+			protocol: L.id,
+			nodeId: n.id,
+			title: n.title,
+			kind: n.kind,
+			pages,
+			model: "",
+			verdict: "ok",
+			issues: [],
+			cached: false,
+			ms: Date.now() - t0,
+			error: String((e as Error)?.message ?? e).slice(0, 300),
+		};
 	}
 }
 
-export async function judgeAll(ids: string[], flaggedBy: Map<string, Issue[]>, k: number, concurrency: number, log = console.log): Promise<JudgeResult[]> {
+export async function judgeAll(
+	ids: string[],
+	flaggedBy: Map<string, Issue[]>,
+	k: number,
+	concurrency: number,
+	log = console.log,
+): Promise<JudgeResult[]> {
 	const queue = [...ids];
 	const results: JudgeResult[] = [];
 	const worker = async () => {
@@ -271,7 +430,9 @@ export async function judgeAll(ids: string[], flaggedBy: Map<string, Issue[]>, k
 			for (const n of sample(L, flaggedBy.get(id) ?? [], k)) {
 				const r = await judgeNode(L, n);
 				results.push(r);
-				log(`  [judge] ${id} p${r.pages.join(",")} ${n.title.slice(0, 50)}: ${r.error ? `ERROR ${r.error.slice(0, 80)}` : `${r.verdict} (${r.issues.length})`}${r.cached ? " cached" : ` ${(r.ms / 1000) | 0}s ${r.model}`}`);
+				log(
+					`  [judge] ${id} p${r.pages.join(",")} ${n.title.slice(0, 50)}: ${r.error ? `ERROR ${r.error.slice(0, 80)}` : `${r.verdict} (${r.issues.length})`}${r.cached ? " cached" : ` ${(r.ms / 1000) | 0}s ${r.model}`}`,
+				);
 			}
 		}
 	};
@@ -311,17 +472,37 @@ if (import.meta.main && process.argv.slice(2).some((a) => a.includes(":"))) {
 			}
 			const r = await judgeNode(L, n);
 			results.push(r);
-			console.log(`  [judge] ${id} p${r.pages.join(",")} ${n.title.slice(0, 50)}: ${r.error ? `ERROR ${r.error.slice(0, 80)}` : `${r.verdict} (${r.issues.length})`}${r.cached ? " cached" : ` ${(r.ms / 1000) | 0}s ${r.model}`}`);
+			console.log(
+				`  [judge] ${id} p${r.pages.join(",")} ${n.title.slice(0, 50)}: ${r.error ? `ERROR ${r.error.slice(0, 80)}` : `${r.verdict} (${r.issues.length})`}${r.cached ? " cached" : ` ${(r.ms / 1000) | 0}s ${r.model}`}`,
+			);
 		}
 	};
-	await Promise.all(Array.from({ length: Number(process.env.JUDGE_CONCURRENCY ?? 2) }, worker));
-	writeFileSync(join(STORE, "eval", "judge-targets.json"), JSON.stringify(results, null, 1));
-	for (const i of judgeIssues(results)) console.log(`[${i.class}/${i.severity}] ${i.protocol} p${i.page} ${i.title}: ${i.detail} :: "${i.sample}"`);
+	await Promise.all(
+		Array.from({ length: Number(process.env.JUDGE_CONCURRENCY ?? 2) }, worker),
+	);
+	writeFileSync(
+		join(STORE, "eval", "judge-targets.json"),
+		JSON.stringify(results, null, 1),
+	);
+	for (const i of judgeIssues(results))
+		console.log(
+			`[${i.class}/${i.severity}] ${i.protocol} p${i.page} ${i.title}: ${i.detail} :: "${i.sample}"`,
+		);
 } else if (import.meta.main) {
 	const ids = process.argv.slice(2);
-	const list = registry().filter((p) => p.published && (!ids.length || ids.includes(p.id))).map((p) => p.id);
+	const list = registry()
+		.filter((p) => p.published && (!ids.length || ids.includes(p.id)))
+		.map((p) => p.id);
 	const flagged = new Map<string, Issue[]>();
 	for (const id of list) flagged.set(id, runChecks(load(id)!).issues);
-	const res = await judgeAll(list, flagged, Number(process.env.JUDGE_K ?? 3), Number(process.env.JUDGE_CONCURRENCY ?? 2));
-	for (const i of judgeIssues(res)) console.log(`[${i.class}/${i.severity}] ${i.protocol} p${i.page} ${i.title}: ${i.detail} :: "${i.sample}"`);
+	const res = await judgeAll(
+		list,
+		flagged,
+		Number(process.env.JUDGE_K ?? 3),
+		Number(process.env.JUDGE_CONCURRENCY ?? 2),
+	);
+	for (const i of judgeIssues(res))
+		console.log(
+			`[${i.class}/${i.severity}] ${i.protocol} p${i.page} ${i.title}: ${i.detail} :: "${i.sample}"`,
+		);
 }

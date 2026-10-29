@@ -14,7 +14,9 @@ const args = process.argv.slice(2);
 const force = args.includes("--force");
 let ids = args.filter((a) => !a.startsWith("--"));
 if (args.includes("--all") || !ids.length) {
-	const catalog: { id: string }[] = await Bun.file(resolve(import.meta.dir, "catalog.json")).json();
+	const catalog: { id: string }[] = await Bun.file(
+		resolve(import.meta.dir, "catalog.json"),
+	).json();
 	ids = [...ids, ...catalog.map((c) => c.id).filter((id) => !ids.includes(id))];
 }
 

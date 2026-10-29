@@ -20,7 +20,9 @@ interface CatalogEntry {
 }
 
 const DATA = resolve(import.meta.dir, "../data");
-const catalog: CatalogEntry[] = await Bun.file(resolve(import.meta.dir, "catalog.json")).json();
+const catalog: CatalogEntry[] = await Bun.file(
+	resolve(import.meta.dir, "catalog.json"),
+).json();
 const only = process.argv.slice(2);
 
 const overlay = await store.overlay();
@@ -34,11 +36,20 @@ overlay.hospitals = [
 ];
 const now = new Date().toISOString();
 // Keep what admins already set (status per hospital); only add missing pairs from the catalogue.
-const existing = new Map(overlay.participation.map((p) => [`${p.protocolId}|${p.hospital}`, p]));
+const existing = new Map(
+	overlay.participation.map((p) => [`${p.protocolId}|${p.hospital}`, p]),
+);
 overlay.participation = catalog.flatMap((c) =>
 	c.hospitals.map(
 		(h) =>
-			existing.get(`${c.id}|${h}`) ?? { protocolId: c.id, hospital: h, participating: true, status: "unknown" as const, updatedBy: "seed", updatedAt: now },
+			existing.get(`${c.id}|${h}`) ?? {
+				protocolId: c.id,
+				hospital: h,
+				participating: true,
+				status: "unknown" as const,
+				updatedBy: "seed",
+				updatedAt: now,
+			},
 	),
 );
 await store.saveOverlay(overlay);
@@ -57,21 +68,42 @@ for (const c of catalog) {
 		const worse = (sp: NonNullable<typeof previous>) => {
 			if (!previous) return false;
 			const [a, b] = [shape(previous), shape(sp)];
-			return (a.steps > 0 && b.steps < a.steps / 2) || (a.diagnostics > 0 && b.diagnostics === 0);
+			return (
+				(a.steps > 0 && b.steps < a.steps / 2) ||
+				(a.diagnostics > 0 && b.diagnostics === 0)
+			);
 		};
 		let { spec } = await ingestPdf({
 			pdf: await Bun.file(resolve(DATA, c.file)).bytes(),
 			fileName: c.file.split("/").pop()!,
 			uploadedBy: "seed",
-			identity: { id: c.id, short: c.short, title: c.title, version: c.version, family: c.family, kind: c.kind, parentId: c.parentId },
+			identity: {
+				id: c.id,
+				short: c.short,
+				title: c.title,
+				version: c.version,
+				family: c.family,
+				kind: c.kind,
+				parentId: c.parentId,
+			},
 		});
 		if (worse(spec)) {
-			console.log(`${c.id}: rebuild is structurally worse (${JSON.stringify(shape(spec))} vs ${JSON.stringify(shape(previous!))}), retrying once`);
+			console.log(
+				`${c.id}: rebuild is structurally worse (${JSON.stringify(shape(spec))} vs ${JSON.stringify(shape(previous!))}), retrying once`,
+			);
 			({ spec } = await ingestPdf({
 				pdf: await Bun.file(resolve(DATA, c.file)).bytes(),
 				fileName: c.file.split("/").pop()!,
 				uploadedBy: "seed",
-				identity: { id: c.id, short: c.short, title: c.title, version: c.version, family: c.family, kind: c.kind, parentId: c.parentId },
+				identity: {
+					id: c.id,
+					short: c.short,
+					title: c.title,
+					version: c.version,
+					family: c.family,
+					kind: c.kind,
+					parentId: c.parentId,
+				},
 			}));
 			if (worse(spec) && previous) {
 				console.log(`${c.id}: still worse, keeping the previous spec`);
@@ -81,7 +113,9 @@ for (const c of catalog) {
 		}
 		await publish(c.id, spec.doc.sha256);
 		const steps = spec.nodes.filter((n) => n.kind === "step").length;
-		const withReq = spec.nodes.filter((n) => n.kind === "step" && !n.notFound).length;
+		const withReq = spec.nodes.filter(
+			(n) => n.kind === "step" && !n.notFound,
+		).length;
 		console.log(
 			`${c.id.padEnd(32)} ${String(spec.doc.pageCount).padStart(3)}p ${String(spec.nodes.length).padStart(4)} nodes ${String(steps).padStart(3)} steps (${withReq} w/ start req) ${String(spec.edges.length).padStart(3)} edges ${spec.build.warnings.length} warnings ${Math.round(performance.now() - t)}ms`,
 		);

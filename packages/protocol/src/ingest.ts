@@ -13,19 +13,43 @@ export interface IngestInput {
 	uploadedBy: string;
 	onStage?: (e: StageEvent) => void;
 	/** Catalogue data an admin already knows (seed, or confirmed on the upload screen). */
-	identity?: { id: string; short: string; title?: string; version?: string; family: Family; kind: ProtocolEntry["kind"]; parentId?: string };
+	identity?: {
+		id: string;
+		short: string;
+		title?: string;
+		version?: string;
+		family: Family;
+		kind: ProtocolEntry["kind"];
+		parentId?: string;
+	};
 	offline?: BuildInput["offline"];
 }
 
-export async function ingestPdf(input: IngestInput): Promise<{ spec: ProtocolSpec; entry: ProtocolEntry; previous: ProtocolSpec | null }> {
+export async function ingestPdf(input: IngestInput): Promise<{
+	spec: ProtocolSpec;
+	entry: ProtocolEntry;
+	previous: ProtocolSpec | null;
+}> {
 	const registry = await store.registry();
 	const known = registry.protocols
 		.filter((p) => p.published)
 		.map((p) => {
 			const v = p.versions.find((x) => x.sha256 === p.published)!;
-			return { id: p.id, short: p.short, title: p.title, version: v.version, sha256: v.sha256 };
+			return {
+				id: p.id,
+				short: p.short,
+				title: p.title,
+				version: v.version,
+				sha256: v.sha256,
+			};
 		});
-	const spec = await buildSpec({ pdf: input.pdf, known, onStage: input.onStage, offline: input.offline, family: input.identity?.family });
+	const spec = await buildSpec({
+		pdf: input.pdf,
+		known,
+		onStage: input.onStage,
+		offline: input.offline,
+		family: input.identity?.family,
+	});
 	if (input.identity) {
 		spec.doc.id = input.identity.id;
 		spec.doc.short = input.identity.short;
@@ -66,7 +90,10 @@ export async function ingestPdf(input: IngestInput): Promise<{ spec: ProtocolSpe
 	await store.savePdf(spec.doc.sha256, input.pdf);
 	await store.saveSpec(spec);
 	await store.saveRegistry(registry);
-	const previous = previousSha && previousSha !== spec.doc.sha256 ? await store.spec(entry.id, previousSha) : null;
+	const previous =
+		previousSha && previousSha !== spec.doc.sha256
+			? await store.spec(entry.id, previousSha)
+			: null;
 	return { spec, entry, previous };
 }
 

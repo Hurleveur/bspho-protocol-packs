@@ -47,7 +47,13 @@ export interface NodeChange {
 export interface SpecDiff {
 	from: { version: string; sha256: string };
 	to: { version: string; sha256: string };
-	counts: { added: number; removed: number; changed: number; numeric: number; unchanged: number };
+	counts: {
+		added: number;
+		removed: number;
+		changed: number;
+		numeric: number;
+		unchanged: number;
+	};
 	changes: NodeChange[];
 }
 
@@ -87,7 +93,11 @@ function blocksOf(n: Node, boiler: Set<string>): Blk[] {
 }
 
 /** Longest-common-subsequence alignment of two sequences; returns the edit script. */
-function align<T>(a: T[], b: T[], eq: (x: T, y: T) => boolean): ({ op: "same"; a: T; b: T } | { op: "del"; a: T } | { op: "add"; b: T })[] {
+function align<T>(
+	a: T[],
+	b: T[],
+	eq: (x: T, y: T) => boolean,
+): ({ op: "same"; a: T; b: T } | { op: "del"; a: T } | { op: "add"; b: T })[] {
 	const n = a.length;
 	const m = b.length;
 	// Trim common prefix/suffix: most blocks and words are unchanged.
@@ -97,29 +107,46 @@ function align<T>(a: T[], b: T[], eq: (x: T, y: T) => boolean): ({ op: "same"; a
 	while (suf < n - pre && suf < m - pre && eq(a[n - 1 - suf], b[m - 1 - suf])) suf++;
 	const A = a.slice(pre, n - suf);
 	const B = b.slice(pre, m - suf);
-	const dp: Uint32Array[] = Array.from({ length: A.length + 1 }, () => new Uint32Array(B.length + 1));
+	const dp: Uint32Array[] = Array.from(
+		{ length: A.length + 1 },
+		() => new Uint32Array(B.length + 1),
+	);
 	for (let i = A.length - 1; i >= 0; i--)
-		for (let j = B.length - 1; j >= 0; j--) dp[i][j] = eq(A[i], B[j]) ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+		for (let j = B.length - 1; j >= 0; j--)
+			dp[i][j] = eq(A[i], B[j])
+				? dp[i + 1][j + 1] + 1
+				: Math.max(dp[i + 1][j], dp[i][j + 1]);
 	const mid: ReturnType<typeof align<T>> = [];
 	let i = 0;
 	let j = 0;
 	while (i < A.length || j < B.length) {
-		if (i < A.length && j < B.length && eq(A[i], B[j])) mid.push({ op: "same", a: A[i++], b: B[j++] });
-		else if (j < B.length && (i === A.length || dp[i][j + 1] >= dp[i + 1][j])) mid.push({ op: "add", b: B[j++] });
+		if (i < A.length && j < B.length && eq(A[i], B[j]))
+			mid.push({ op: "same", a: A[i++], b: B[j++] });
+		else if (j < B.length && (i === A.length || dp[i][j + 1] >= dp[i + 1][j]))
+			mid.push({ op: "add", b: B[j++] });
 		else mid.push({ op: "del", a: A[i++] });
 	}
 	return [
 		...a.slice(0, pre).map((x, k) => ({ op: "same" as const, a: x, b: b[k] })),
 		...mid,
-		...a.slice(n - suf).map((x, k) => ({ op: "same" as const, a: x, b: b[m - suf + k] })),
+		...a
+			.slice(n - suf)
+			.map((x, k) => ({ op: "same" as const, a: x, b: b[m - suf + k] })),
 	];
 }
 
 const words = (s: string) => s.split(/\s+/).filter(Boolean);
 const wordKey = (w: string) => normalize(w);
 
-function wordDiff(oldText: string, newText: string): { segments: Segment[]; numbers: NumberChange[] } {
-	const script = align(words(oldText), words(newText), (x, y) => wordKey(x) === wordKey(y));
+function wordDiff(
+	oldText: string,
+	newText: string,
+): { segments: Segment[]; numbers: NumberChange[] } {
+	const script = align(
+		words(oldText),
+		words(newText),
+		(x, y) => wordKey(x) === wordKey(y),
+	);
 	// Group into runs: unchanged words, then each edit hunk as "removed words, added words".
 	const segments: Segment[] = [];
 	const numbers: NumberChange[] = [];
@@ -136,7 +163,12 @@ function wordDiff(oldText: string, newText: string): { segments: Segment[]; numb
 		if (d) segments.push({ op: "del", text: d });
 		if (a) segments.push({ op: "add", text: a });
 		if (HAS_DIGIT.test(d) || HAS_DIGIT.test(a)) {
-			const n = { before: lastSame.slice(-CONTEXT).join(" "), old: d, new: a, after: "" };
+			const n = {
+				before: lastSame.slice(-CONTEXT).join(" "),
+				old: d,
+				new: a,
+				after: "",
+			};
 			numbers.push(n);
 			waiting.push({ n, words: [] });
 		}
@@ -148,7 +180,9 @@ function wordDiff(oldText: string, newText: string): { segments: Segment[]; numb
 			flushEdit();
 			same.push(s.b);
 			lastSame = same;
-			for (const w of waiting) if (w.words.length < CONTEXT) w.n.after = (w.words = [...w.words, s.b]).join(" ");
+			for (const w of waiting)
+				if (w.words.length < CONTEXT)
+					w.n.after = (w.words = [...w.words, s.b]).join(" ");
 			waiting = waiting.filter((w) => w.words.length < CONTEXT);
 			continue;
 		}
@@ -172,12 +206,27 @@ function diffBlocks(oldB: Blk[], newB: Blk[]): BlockChange[] {
 		const pairs = Math.min(dels.length, adds.length);
 		for (let k = 0; k < pairs; k++) {
 			const { segments, numbers } = wordDiff(dels[k].text, adds[k].text);
-			out.push({ op: "changed", segments, numbers, page: { old: dels[k].page, new: adds[k].page } });
+			out.push({
+				op: "changed",
+				segments,
+				numbers,
+				page: { old: dels[k].page, new: adds[k].page },
+			});
 		}
 		for (const d of dels.slice(pairs))
-			out.push({ op: "removed", segments: [{ op: "del", text: d.text }], numbers: [], page: { old: d.page, new: null } });
+			out.push({
+				op: "removed",
+				segments: [{ op: "del", text: d.text }],
+				numbers: [],
+				page: { old: d.page, new: null },
+			});
 		for (const a of adds.slice(pairs))
-			out.push({ op: "added", segments: [{ op: "add", text: a.text }], numbers: [], page: { old: null, new: a.page } });
+			out.push({
+				op: "added",
+				segments: [{ op: "add", text: a.text }],
+				numbers: [],
+				page: { old: null, new: a.page },
+			});
 		dels = [];
 		adds = [];
 	};
@@ -199,7 +248,10 @@ export function diffSpecs(prev: ProtocolSpec, next: ProtocolSpec): SpecDiff {
 	const byTitle = new Map<string, Node[]>();
 	for (const n of prev.nodes) {
 		const t = titleKey(n.title);
-		byKindTitle.set(`${n.kind}|${t}`, [...(byKindTitle.get(`${n.kind}|${t}`) ?? []), n]);
+		byKindTitle.set(`${n.kind}|${t}`, [
+			...(byKindTitle.get(`${n.kind}|${t}`) ?? []),
+			n,
+		]);
 		byTitle.set(t, [...(byTitle.get(t) ?? []), n]);
 	}
 	const used = new Set<string>();
@@ -245,10 +297,28 @@ export function diffSpecs(prev: ProtocolSpec, next: ProtocolSpec): SpecDiff {
 		});
 	}
 	for (const n of stillAdded)
-		changes.push({ status: "added", category: "structural", kind: n.kind, title: n.title, nodeId: n.id, headingPath: n.headingPath, pages: { old: null, new: n.pages }, blocks: [] });
+		changes.push({
+			status: "added",
+			category: "structural",
+			kind: n.kind,
+			title: n.title,
+			nodeId: n.id,
+			headingPath: n.headingPath,
+			pages: { old: null, new: n.pages },
+			blocks: [],
+		});
 	for (const o of prev.nodes)
 		if (!used.has(o.id))
-			changes.push({ status: "removed", category: "structural", kind: o.kind, title: o.title, nodeId: o.id, headingPath: o.headingPath, pages: { old: o.pages, new: null }, blocks: [] });
+			changes.push({
+				status: "removed",
+				category: "structural",
+				kind: o.kind,
+				title: o.title,
+				nodeId: o.id,
+				headingPath: o.headingPath,
+				pages: { old: o.pages, new: null },
+				blocks: [],
+			});
 
 	const rank = { numeric: 0, textual: 1, structural: 2 };
 	const page = (c: NodeChange) => (c.pages.new ?? c.pages.old)!.from;

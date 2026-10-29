@@ -70,9 +70,20 @@ export const ProtocolEntry = z.object({
 });
 export type ProtocolEntry = z.infer<typeof ProtocolEntry>;
 
-const Side = z.object({ id: z.string(), short: z.string(), version: z.string(), sha256: z.string() });
+const Side = z.object({
+	id: z.string(),
+	short: z.string(),
+	version: z.string(),
+	sha256: z.string(),
+});
 /** Findings between protocol A and B, from A's side: `lines` are in A, `otherLines` in B. */
-export const Crosscheck = z.object({ a: Side, b: Side, model: z.string(), builtAt: z.string(), findings: z.array(Finding) });
+export const Crosscheck = z.object({
+	a: Side,
+	b: Side,
+	model: z.string(),
+	builtAt: z.string(),
+	findings: z.array(Finding),
+});
 export type Crosscheck = z.infer<typeof Crosscheck>;
 
 export const Registry = z.object({ protocols: z.array(ProtocolEntry) });
@@ -143,16 +154,27 @@ export const store = {
 	registry: () => readJson("registry.json", Registry, { protocols: [] }),
 	saveRegistry: (r: Registry) => writeJson("registry.json", r),
 
-	overlay: () => readJson("overlay.json", Overlay, { specVersion: SPEC_VERSION, hospitals: [], participation: [], localRules: [] }),
+	overlay: () =>
+		readJson("overlay.json", Overlay, {
+			specVersion: SPEC_VERSION,
+			hospitals: [],
+			participation: [],
+			localRules: [],
+		}),
 	saveOverlay: (o: Overlay) => writeJson("overlay.json", Overlay.parse(o)),
 
 	ready,
 
 	async spec(protocolId: string, sha: string): Promise<ProtocolSpec> {
 		await ready();
-		return ProtocolSpec.parse(JSON.parse(await readFile(join(ROOT, "specs", protocolId, `${sha}.json`), "utf8")));
+		return ProtocolSpec.parse(
+			JSON.parse(
+				await readFile(join(ROOT, "specs", protocolId, `${sha}.json`), "utf8"),
+			),
+		);
 	},
-	saveSpec: (spec: ProtocolSpec) => writeJson(join("specs", spec.doc.id, `${spec.doc.sha256}.json`), spec),
+	saveSpec: (spec: ProtocolSpec) =>
+		writeJson(join("specs", spec.doc.id, `${spec.doc.sha256}.json`), spec),
 
 	pdfPath: (sha: string) => join(ROOT, "pdfs", `${sha}.pdf`),
 	async savePdf(sha: string, bytes: Uint8Array) {
@@ -161,14 +183,38 @@ export const store = {
 		await push(join("pdfs", `${sha}.pdf`));
 	},
 
-	crosscheck: (idA: string, idB: string) => readJson<Crosscheck | null>(join("crosschecks", `${idA}__${idB}.json`), Crosscheck.nullable(), null),
-	saveCrosscheck: (c: Crosscheck) => writeJson(join("crosschecks", `${c.a.id}__${c.b.id}.json`), Crosscheck.parse(c)),
+	crosscheck: (idA: string, idB: string) =>
+		readJson<Crosscheck | null>(
+			join("crosschecks", `${idA}__${idB}.json`),
+			Crosscheck.nullable(),
+			null,
+		),
+	saveCrosscheck: (c: Crosscheck) =>
+		writeJson(
+			join("crosschecks", `${c.a.id}__${c.b.id}.json`),
+			Crosscheck.parse(c),
+		),
 	/** Every crosscheck involving a protocol (either side). */
 	async crosschecks(protocolId: string): Promise<Crosscheck[]> {
 		await ready();
-		const names = await readdir(join(ROOT, "crosschecks")).catch(() => [] as string[]);
-		const mine = names.filter((n) => n.endsWith(".json") && n.slice(0, -5).split("__").includes(protocolId));
-		return (await Promise.all(mine.map((n) => readJson<Crosscheck | null>(join("crosschecks", n), Crosscheck.nullable(), null)))).filter((c): c is Crosscheck => !!c);
+		const names = await readdir(join(ROOT, "crosschecks")).catch(
+			() => [] as string[],
+		);
+		const mine = names.filter(
+			(n) =>
+				n.endsWith(".json") && n.slice(0, -5).split("__").includes(protocolId),
+		);
+		return (
+			await Promise.all(
+				mine.map((n) =>
+					readJson<Crosscheck | null>(
+						join("crosschecks", n),
+						Crosscheck.nullable(),
+						null,
+					),
+				),
+			)
+		).filter((c): c is Crosscheck => !!c);
 	},
 
 	/** The published spec of a protocol (or its newest draft when nothing is published yet). */

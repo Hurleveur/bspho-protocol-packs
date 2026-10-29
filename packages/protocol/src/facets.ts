@@ -8,11 +8,20 @@
  * the protocol text or says the protocol does not state it.
  */
 
-export const QUESTION_TYPES = ["before_starting", "acute_management", "complication", "staging_workup", "other"] as const;
+export const QUESTION_TYPES = [
+	"before_starting",
+	"acute_management",
+	"complication",
+	"staging_workup",
+	"other",
+] as const;
 export type QuestionType = (typeof QUESTION_TYPES)[number];
 
 /** Per type: the checklist, and for each facet the section kinds that usually hold it (Ask boosts them when it searches that facet). */
-export const FACETS: Record<Exclude<QuestionType, "other">, { label: string; facets: string[]; kinds: string[][] }> = {
+export const FACETS: Record<
+	Exclude<QuestionType, "other">,
+	{ label: string; facets: string[]; kinds: string[][] }
+> = {
 	before_starting: {
 		label: "conditions before starting a drug, course or phase",
 		facets: [
@@ -21,7 +30,12 @@ export const FACETS: Record<Exclude<QuestionType, "other">, { label: string; fac
 			"Other conditions, per protocol and arm: performance status, no active infection, prior toxicity grades, disease status, timing windows, premedication or drugs to avoid",
 			"Every phase or arm where the drug is given (e.g. chemo-immunotherapy arm, maintenance with its companion drugs, trial entry vs before each cycle), named in the opening and each with its own criteria",
 		],
-		kinds: [["start_requirements", "eligibility"], ["start_requirements", "eligibility"], ["start_requirements", "eligibility", "drug_info"], ["start_requirements", "step", "phase"]],
+		kinds: [
+			["start_requirements", "eligibility"],
+			["start_requirements", "eligibility"],
+			["start_requirements", "eligibility", "drug_info"],
+			["start_requirements", "step", "phase"],
+		],
 	},
 	acute_management: {
 		label: "acute management of a presentation",
@@ -30,7 +44,11 @@ export const FACETS: Record<Exclude<QuestionType, "other">, { label: string; fac
 			"Risk-group consequence, per protocol: whether the presenting value is a stratification or high-risk criterion there (state the cut-off) and the group it assigns",
 			"Next treatment step, per protocol: the induction or course the patient then starts, naming each of its drugs as the protocol lists them (not only '4-drug induction'), and any pre-phase or cytoreduction",
 		],
-		kinds: [["supportive_care"], ["risk_groups", "risk_group"], ["step", "phase", "risk_groups"]],
+		kinds: [
+			["supportive_care"],
+			["risk_groups", "risk_group"],
+			["step", "phase", "risk_groups"],
+		],
 	},
 	complication: {
 		label: "a complication or adverse event during treatment",
@@ -41,7 +59,13 @@ export const FACETS: Record<Exclude<QuestionType, "other">, { label: string; fac
 			"Treatment of the complication itself as the protocol or its sub-protocols describe it",
 			"Reporting: whether it must be recorded or reported (toxicity form, AESI, SAE) and how; quote the full list of events the protocol's AESI or toxicity category names, not only the one asked about",
 		],
-		kinds: [["toxicity", "drug_info", "diagnostics"], ["diagnostics", "schedule"], ["toxicity", "drug_info"], ["supportive_care", "toxicity"], ["toxicity"]],
+		kinds: [
+			["toxicity", "drug_info", "diagnostics"],
+			["diagnostics", "schedule"],
+			["toxicity", "drug_info"],
+			["supportive_care", "toxicity"],
+			["toxicity"],
+		],
 	},
 	staging_workup: {
 		label: "staging, diagnosis or work-up",
@@ -51,17 +75,38 @@ export const FACETS: Record<Exclude<QuestionType, "other">, { label: string; fac
 			"Pathology and biology: the classification system the pathologist must apply (name it), biopsy type (core or surgical vs fine-needle, and why), samples to send, molecular tests required for all patients",
 			"Definitions and cut-offs that decide staging or risk group (e.g. what counts as metastatic, and what does not; for the patient the question describes, quote the protocol's risk-group or eligibility definition that applies to their age and biology, e.g. which stages qualify), with what the protocol says to do about borderline findings (e.g. whether to biopsy them), and conditional tests (state the condition)",
 		],
-		kinds: [["diagnostics", "schedule"], ["diagnostics"], ["diagnostics"], ["diagnostics", "risk_groups", "risk_group"]],
+		kinds: [
+			["diagnostics", "schedule"],
+			["diagnostics"],
+			["diagnostics"],
+			["diagnostics", "risk_groups", "risk_group"],
+		],
 	},
 };
 
 /** Cheap question-type guess for the agent path (no extra model call). Ask uses its planner instead. */
 export function classify(question: string): QuestionType {
 	const q = question.toLowerCase();
-	if (/\b(stag(e|ed|ing)|work-?up|investigations?|examinations?|baseline|imaging|diagnos(is|tic))\b/.test(q)) return "staging_workup";
-	if (/\b(developed|complication|adverse|side[- ]effects?|toxicit(y|ies)|reaction|stroke|seizure|thrombos[ie]s|bleed(ing)?|pancreatitis|possible causes?)\b/.test(q)) return "complication";
-	if (/\b(before (starting|start|giving|beginning)|prior to|conditions?|criteria|requirements?|eligib\w*|can i start)\b/.test(q)) return "before_starting";
-	if (/\b(acute|emergenc\w*|next steps?|management|manage|presents? with)\b/.test(q)) return "acute_management";
+	if (
+		/\b(stag(e|ed|ing)|work-?up|investigations?|examinations?|baseline|imaging|diagnos(is|tic))\b/.test(
+			q,
+		)
+	)
+		return "staging_workup";
+	if (
+		/\b(developed|complication|adverse|side[- ]effects?|toxicit(y|ies)|reaction|stroke|seizure|thrombos[ie]s|bleed(ing)?|pancreatitis|possible causes?)\b/.test(
+			q,
+		)
+	)
+		return "complication";
+	if (
+		/\b(before (starting|start|giving|beginning)|prior to|conditions?|criteria|requirements?|eligib\w*|can i start)\b/.test(
+			q,
+		)
+	)
+		return "before_starting";
+	if (/\b(acute|emergenc\w*|next steps?|management|manage|presents? with)\b/.test(q))
+		return "acute_management";
 	return "other";
 }
 
@@ -72,9 +117,18 @@ export function classify(question: string): QuestionType {
  */
 function lead(question: string): { text: string; narrow: boolean } {
 	const value = /\d/.test(question);
-	const narrow = value && /^(can|may|could|should|is|are|do|does)\b|\b(can|may|could) (i|we)\b/i.test(question.trim());
-	const parts = ["Open with the direct answer to the question asked, in one or two sentences, before any label line or facet."];
-	if (value) parts.push("The question gives a patient value: in those opening sentences compare it with the threshold that applies (quote the threshold with its citation, including any alternative criterion joined by OR or AND and what the outcome then depends on), and leave the decision to the clinician.");
+	const narrow =
+		value &&
+		/^(can|may|could|should|is|are|do|does)\b|\b(can|may|could) (i|we)\b/i.test(
+			question.trim(),
+		);
+	const parts = [
+		"Open with the direct answer to the question asked, in one or two sentences, before any label line or facet.",
+	];
+	if (value)
+		parts.push(
+			"The question gives a patient value: in those opening sentences compare it with the threshold that applies (quote the threshold with its citation, including any alternative criterion joined by OR or AND and what the outcome then depends on), and leave the decision to the clinician.",
+		);
 	return { text: parts.join(" "), narrow };
 }
 
@@ -82,12 +136,14 @@ function lead(question: string): { text: string; narrow: boolean } {
 export function checklist(type: QuestionType, question = ""): string {
 	const l = lead(question);
 	if (type === "other") return /\d/.test(question) ? l.text : "";
-	if (l.narrow && type === "before_starting") return `${l.text}\nThen list the other starting criteria of that same course or step briefly, each with its threshold and citation. Do not cover other phases or arms unless the question leaves the course open.`;
+	if (l.narrow && type === "before_starting")
+		return `${l.text}\nThen list the other starting criteria of that same course or step briefly, each with its threshold and citation. Do not cover other phases or arms unless the question leaves the course open.`;
 	const f = FACETS[type];
 	return `${l.text}\nThis is a question about ${f.label}. A complete answer then covers each of these facets that the protocol text addresses (give each its own label line and bullets; skip a facet only if the protocol says nothing about it):\n${f.facets.map((x) => `- ${x}`).join("\n")}`;
 }
 
-const LIST_HEAD = /criteria|requirements?|eligib|prior to|before (start|each|begin)|conditions? (to|for|prior)/i;
+const LIST_HEAD =
+	/criteria|requirements?|eligib|prior to|before (start|each|begin)|conditions? (to|for|prior)/i;
 const NUMBERED_HEAD = /^\d+(\.\d+)+\s*[-–:]?\s*\S/;
 
 /**
@@ -103,21 +159,32 @@ export function listHeads(blocks: { text: string }[]): (string | null)[] {
 		// A heading is the whole short block, or the short first line of a longer one ("Dose Modifications for X\n...").
 		const first = (b.text.split("\n")[0] ?? "").replace(/\s+/g, " ").trim();
 		const line = t.length < 160 ? t : first.length < 70 ? first : "";
-		if (!line || /^(\d+\)|[o•·-]\s)/.test(line) || /[.,;]$/.test(line) || !/^[A-Z0-9]/.test(line)) return under;
+		if (
+			!line ||
+			/^(\d+\)|[o•·-]\s)/.test(line) ||
+			/[.,;]$/.test(line) ||
+			!/^[A-Z0-9]/.test(line)
+		)
+			return under;
 		if (LIST_HEAD.test(line)) {
 			under = line;
 			return t === line ? null : under;
 		}
-		if (NUMBERED_HEAD.test(line) || (line !== t && !line.endsWith(":"))) under = null;
+		if (NUMBERED_HEAD.test(line) || (line !== t && !line.endsWith(":")))
+			under = null;
 		return under;
 	});
 }
 
-const BLOOD_COUNT = /\b(anc|neutrophil|granulocyte|platelet|plt|haemoglobin|hemoglobin|hb|wbc|leu[ck]ocyte|white (blood )?cell|blood counts?)\b/i;
+const BLOOD_COUNT =
+	/\b(anc|neutrophil|granulocyte|platelet|plt|haemoglobin|hemoglobin|hb|wbc|leu[ck]ocyte|white (blood )?cell|blood counts?)\b/i;
 const ITEM = /^(\d+\)|[o•·▪-]\s|[a-z]\)\s)/;
 /** Items that set clinical start conditions (organ function, toxicity grades): the lists where a missing count matters. */
 const CLINICAL = /\b(grade|uln|bilirubin|alt|ast|creatinine|gfr|toxicity)\b/i;
-const noCounts = (items: string[]) => items.length >= 2 && !items.some((x) => BLOOD_COUNT.test(x)) && items.filter((x) => CLINICAL.test(x)).length >= 2;
+const noCounts = (items: string[]) =>
+	items.length >= 2 &&
+	!items.some((x) => BLOOD_COUNT.test(x)) &&
+	items.filter((x) => CLINICAL.test(x)).length >= 2;
 
 /**
  * Per block, a note when the block heads a criteria list that sets no blood-count threshold
@@ -138,7 +205,13 @@ export function countNotes(blocks: { text: string }[]): (string | null)[] {
 		// a list inside this block: a heading line, then item lines
 		const ls = b.text.split("\n").map((l) => l.trim());
 		for (const [i, l] of ls.entries()) {
-			if (l.length > 120 || ITEM.test(l) || /\.{4,}/.test(l) || !LIST_HEAD.test(l)) continue;
+			if (
+				l.length > 120 ||
+				ITEM.test(l) ||
+				/\.{4,}/.test(l) ||
+				!LIST_HEAD.test(l)
+			)
+				continue;
 			const items: string[] = [];
 			for (const x of ls.slice(i + 1)) {
 				if (ITEM.test(x)) items.push(x);
@@ -146,6 +219,10 @@ export function countNotes(blocks: { text: string }[]): (string | null)[] {
 			}
 			if (noCounts(items)) notes.push(l);
 		}
-		return notes.length ? notes.map((n) => `the list "${n}" sets no blood-count threshold`).join("; ") : null;
+		return notes.length
+			? notes
+					.map((n) => `the list "${n}" sets no blood-count threshold`)
+					.join("; ")
+			: null;
 	});
 }

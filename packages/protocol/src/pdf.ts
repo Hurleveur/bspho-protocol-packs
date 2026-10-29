@@ -67,10 +67,14 @@ function visualLines(raw: RawLine[], page: number): Line[] {
 				// A wide gap is a column boundary, unless what precedes it is a section number or a list marker ("-<tab>item").
 				// (a lone section number "5.1" or "A." before its title, or a list marker); numeric table cells do count.
 				// List markers ("o", "•", "4) ◆", "a)", "(ii)") before a tab stop are not a table column either.
-				const sectionNumber = /^\s*(?:\d{1,2}(?:\.\d{1,2}){0,4}\.?|\(?[A-Za-z][.)]|\(?\d{1,2}\)|\(?[ivxIVX]{1,4}[.)]|[^\p{L}\p{N}\s]{1,2}|o)(?:\s+[^\p{L}\p{N}\s]{1,2})?\s*$/u.test(text);
+				const sectionNumber =
+					/^\s*(?:\d{1,2}(?:\.\d{1,2}){0,4}\.?|\(?[A-Za-z][.)]|\(?\d{1,2}\)|\(?[ivxIVX]{1,4}[.)]|[^\p{L}\p{N}\s]{1,2}|o)(?:\s+[^\p{L}\p{N}\s]{1,2})?\s*$/u.test(
+						text,
+					);
 				if (gap > 12 && !sectionNumber && text.trim().length > 1) cells++;
 				// A word space is ~0.25 em; loose letter-spacing (rotated HLH tables) stays below it.
-				if (gap > Math.max(1.5, 0.22 * p.size) && !text.endsWith(" ")) text += " ";
+				if (gap > Math.max(1.5, 0.22 * p.size) && !text.endsWith(" "))
+					text += " ";
 			}
 			text += p.text;
 			prevX1 = p.bbox.x + p.bbox.w;
@@ -105,7 +109,12 @@ export function readPage(doc: mupdf.Document, page: number): PdfPage {
 		blocks: {
 			type: string;
 			bbox: { x: number; y: number; w: number; h: number };
-			lines?: { text: string; bbox: RawLine["bbox"]; font?: { name: string; size: number; weight: string }; wmode?: number }[];
+			lines?: {
+				text: string;
+				bbox: RawLine["bbox"];
+				font?: { name: string; size: number; weight: string };
+				wmode?: number;
+			}[];
 		}[];
 	};
 	const raw: RawLine[] = [];
@@ -114,7 +123,13 @@ export function readPage(doc: mupdf.Document, page: number): PdfPage {
 	for (const b of json.blocks) {
 		if (b.type === "image") {
 			imageArea += b.bbox.w * b.bbox.h;
-			if (b.bbox.w > 120 && b.bbox.h > 80) images.push([b.bbox.x, b.bbox.y, b.bbox.x + b.bbox.w, b.bbox.y + b.bbox.h]);
+			if (b.bbox.w > 120 && b.bbox.h > 80)
+				images.push([
+					b.bbox.x,
+					b.bbox.y,
+					b.bbox.x + b.bbox.w,
+					b.bbox.y + b.bbox.h,
+				]);
 			continue;
 		}
 		for (const l of b.lines ?? []) {
@@ -145,9 +160,19 @@ export function readPages(doc: mupdf.Document): PdfPage[] {
 }
 
 /** PNG of one page, optionally with highlight boxes (PDF points) painted in. */
-export function renderPage(doc: mupdf.Document, page: number, highlights: Box[] = [], zoom = 1.6): Uint8Array {
+export function renderPage(
+	doc: mupdf.Document,
+	page: number,
+	highlights: Box[] = [],
+	zoom = 1.6,
+): Uint8Array {
 	const p = doc.loadPage(page - 1);
-	const pix = p.toPixmap(mupdf.Matrix.scale(zoom, zoom), mupdf.ColorSpace.DeviceRGB, false, true);
+	const pix = p.toPixmap(
+		mupdf.Matrix.scale(zoom, zoom),
+		mupdf.ColorSpace.DeviceRGB,
+		false,
+		true,
+	);
 	if (highlights.length) {
 		// Multiply a warm yellow over each box so the text stays readable.
 		const w = pix.getWidth();
@@ -175,9 +200,20 @@ export function sha256(bytes: Uint8Array): string {
 }
 
 /** PNG of a region of a page (PDF points), e.g. a table shown exactly as printed. */
-export function renderRegion(doc: mupdf.Document, page: number, [x0, y0, x1, y1]: Box, zoom = 2, pad = 6): Uint8Array {
+export function renderRegion(
+	doc: mupdf.Document,
+	page: number,
+	[x0, y0, x1, y1]: Box,
+	zoom = 2,
+	pad = 6,
+): Uint8Array {
 	const p = doc.loadPage(page - 1);
-	const bbox: mupdf.Rect = [(x0 - pad) * zoom, (y0 - pad) * zoom, (x1 + pad) * zoom, (y1 + pad) * zoom].map(Math.round) as mupdf.Rect;
+	const bbox: mupdf.Rect = [
+		(x0 - pad) * zoom,
+		(y0 - pad) * zoom,
+		(x1 + pad) * zoom,
+		(y1 + pad) * zoom,
+	].map(Math.round) as mupdf.Rect;
 	const pix = new mupdf.Pixmap(mupdf.ColorSpace.DeviceRGB, bbox, false);
 	pix.clear(255);
 	const dev = new mupdf.DrawDevice(mupdf.Matrix.scale(zoom, zoom), pix);

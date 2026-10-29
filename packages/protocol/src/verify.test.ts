@@ -4,7 +4,10 @@ import { openPdf, readPage } from "./pdf.ts";
 import { locate, normalize } from "./verify.ts";
 
 // ALLTogether1 p179: "WBC should be >1.5x109/L or • ANC ≥0.5x109/L (...) and • platelets >50x109/L and rising."
-const PDF = resolve(import.meta.dir, "../../../data/protocols/ALLTogether1 Master Protocol v6.0 07Mar25_CLEAN3_signed.pdf");
+const PDF = resolve(
+	import.meta.dir,
+	"../../../data/protocols/ALLTogether1 Master Protocol v6.0 07Mar25_CLEAN3_signed.pdf",
+);
 let page = "";
 
 beforeAll(async () => {
@@ -13,7 +16,11 @@ beforeAll(async () => {
 
 describe("locate", () => {
 	test("rejects quotes whose numbers differ from the page", () => {
-		for (const q of ["WBC should be >3.0x109/L", "platelets >75x109/L and rising", "platelets >30x109/L and rising"]) {
+		for (const q of [
+			"WBC should be >3.0x109/L",
+			"platelets >75x109/L and rising",
+			"platelets >30x109/L and rising",
+		]) {
 			expect(locate(q, page).verified).toBe(false);
 		}
 	});
@@ -36,12 +43,27 @@ describe("locate", () => {
 	});
 
 	test("checks every segment of an elided quote", () => {
-		expect(locate("Before the start of the phase: ... platelets >50x109/L and rising", page).verified).toBe(true);
-		expect(locate("Before the start of the phase: ... platelets >80x109/L and rising", page).verified).toBe(false);
+		expect(
+			locate(
+				"Before the start of the phase: ... platelets >50x109/L and rising",
+				page,
+			).verified,
+		).toBe(true);
+		expect(
+			locate(
+				"Before the start of the phase: ... platelets >80x109/L and rising",
+				page,
+			).verified,
+		).toBe(false);
 	});
 
 	test("a section number is not a threshold", () => {
-		expect(locate("ANC ≥0.3x109/L (consider Duffy phenotype – see section 10.3.8)", page).verified).toBe(false);
+		expect(
+			locate(
+				"ANC ≥0.3x109/L (consider Duffy phenotype – see section 10.3.8)",
+				page,
+			).verified,
+		).toBe(false);
 	});
 });
 

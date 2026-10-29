@@ -37,7 +37,9 @@ const SIGN = /≥|≤|>=|<=|[<>]/g;
 
 /** Comparison signs of a text, as a sorted unique list (">=" spelled "≥"). */
 export function signs(s: string): string {
-	const found = (s.normalize("NFKC").match(SIGN) ?? []).map((x) => (x === ">=" ? "≥" : x === "<=" ? "≤" : x));
+	const found = (s.normalize("NFKC").match(SIGN) ?? []).map((x) =>
+		x === ">=" ? "≥" : x === "<=" ? "≤" : x,
+	);
 	return [...new Set(found)].sort().join("");
 }
 
@@ -45,7 +47,9 @@ export function signs(s: string): string {
 export function numberSet(s: string): Set<string> {
 	const t = normalize(s)
 		// Thousands separators: "1,000" / "1.000" / "1 000" followed by exactly 3 digits and no further digit.
-		.replace(/(?<![\d.,])(\d{1,3})(?:[ ,.  ](\d{3}))+(?![\d.,]?\d)/g, (m) => m.replace(/[ ,.  ]/g, ""));
+		.replace(/(?<![\d.,])(\d{1,3})(?:[ ,.  ](\d{3}))+(?![\d.,]?\d)/g, (m) =>
+			m.replace(/[ ,.  ]/g, ""),
+		);
 	return new Set(numbers(t).map((n) => String(Number(n))));
 }
 
@@ -53,11 +57,17 @@ export type Reject = "numbers" | "missing" | "signs" | "length" | "empty";
 
 // A number is decisive when it carries a unit or a comparison sign: thresholds, doses, durations, timings.
 const UNIT = String.raw`(?:%|gpl\b|×|mg|g\b|µg|mcg|ug|ng|ml|l\b|dl|gy|mmol|µmol|umol|iu|u/|units?|kg|m²|m2|cm|mm|mmhg|/l|/µl|/mm|hours?|hrs?|h\b|min|days?|d\b|weeks?|wks?|months?|years?|y\b|jours?|semaines?|mois|ans?|dagen|dag|weken|week|maanden|jaar|uur)`;
-const DECISIVE = new RegExp(String.raw`(?:[≥≤<>]\s*(\d+(?:[.,]\d+)?))|(?:(?<![\d.,])(\d+(?:[.,]\d+)?)(?:\s*-\s*\d+(?:[.,]\d+)?)?\s*${UNIT})`, "g");
+const DECISIVE = new RegExp(
+	String.raw`(?:[≥≤<>]\s*(\d+(?:[.,]\d+)?))|(?:(?<![\d.,])(\d+(?:[.,]\d+)?)(?:\s*-\s*\d+(?:[.,]\d+)?)?\s*${UNIT})`,
+	"g",
+);
 
 /** Decisive numbers of a text (next to a unit or a comparison sign), as values. */
 export function decisive(s: string): Set<string> {
-	const t = normalize(s).replace(/(?<![\d.,])(\d{1,3})(?:[ ,.\u202f\u00a0](\d{3}))+(?![\d.,]?\d)/g, (m) => m.replace(/[ ,.\u202f\u00a0]/g, ""));
+	const t = normalize(s).replace(
+		/(?<![\d.,])(\d{1,3})(?:[ ,.\u202f\u00a0](\d{3}))+(?![\d.,]?\d)/g,
+		(m) => m.replace(/[ ,.\u202f\u00a0]/g, ""),
+	);
 	const out = new Set<string>();
 	for (const m of t.replaceAll("x10^9/l", " gpl").matchAll(DECISIVE)) {
 		const all = m[0].match(/\d+(?:[.,]\d+)?/g) ?? [];
@@ -71,12 +81,17 @@ export function decisive(s: string): Set<string> {
  * number of the original; every decisive number of the original (with a unit or a comparison sign)
  * is in the summary; the comparison signs are the same; never longer than the original.
  */
-export function checkSummary(original: string, summary: string, lang: Lang): Reject | null {
+export function checkSummary(
+	original: string,
+	summary: string,
+	lang: Lang,
+): Reject | null {
 	const s = summary.trim();
 	if (!s) return "empty";
 	const o = original.replace(/\s+/g, " ").trim();
 	// A translation of an already short line may run a little longer than the original (French especially).
-	const limit = lang !== "en" && o.length <= 80 ? Math.ceil(o.length * 1.35) + 4 : o.length;
+	const limit =
+		lang !== "en" && o.length <= 80 ? Math.ceil(o.length * 1.35) + 4 : o.length;
 	if (s.length > limit) return "length";
 	const a = numberSet(o);
 	const b = numberSet(s);
@@ -98,7 +113,16 @@ const LineOut = z.object({
 		}),
 	),
 });
-const TitleOut = z.object({ titles: z.array(z.object({ i: z.number().int(), en: z.string(), fr: z.string(), nl: z.string() })) });
+const TitleOut = z.object({
+	titles: z.array(
+		z.object({
+			i: z.number().int(),
+			en: z.string(),
+			fr: z.string(),
+			nl: z.string(),
+		}),
+	),
+});
 
 const RULES = [
 	"You write scan-lines for a paediatric oncology treatment protocol: a doctor skims them to find the information fast, then clicks through to the original PDF line.",
@@ -124,17 +148,27 @@ export interface Usage {
 
 function isQuota(e: unknown): boolean {
 	const s = `${(e as { message?: string })?.message ?? ""} ${(e as { statusCode?: number })?.statusCode ?? ""} ${JSON.stringify((e as { responseBody?: unknown })?.responseBody ?? "")}`;
-	return /429|RESOURCE_EXHAUSTED|quota|rate limit|overloaded|503|UNAVAILABLE/i.test(s);
+	return /429|RESOURCE_EXHAUSTED|quota|rate limit|overloaded|503|UNAVAILABLE/i.test(
+		s,
+	);
 }
 
 /** Models that just hit a quota error are skipped until this time (ms). */
 const cooling = new Map<string, number>();
 
-async function callModel<T>(schema: z.ZodType<T>, prompt: string, onUsage: (model: string, u: Usage) => void): Promise<{ out: T; model: string }> {
+async function callModel<T>(
+	schema: z.ZodType<T>,
+	prompt: string,
+	onUsage: (model: string, u: Usage) => void,
+): Promise<{ out: T; model: string }> {
 	let last: unknown;
 	for (let round = 0; round < 3; round++) {
 		for (const { location, model } of MODELS) {
-			if ((cooling.get(model) ?? 0) > Date.now() && model !== MODELS.at(-1)?.model) continue;
+			if (
+				(cooling.get(model) ?? 0) > Date.now() &&
+				model !== MODELS.at(-1)?.model
+			)
+				continue;
 			const t0 = Date.now();
 			try {
 				const vertex = createVertex({ project: PROJECT, location });
@@ -149,11 +183,17 @@ async function callModel<T>(schema: z.ZodType<T>, prompt: string, onUsage: (mode
 					providerOptions: { vertex: { thinkingConfig: thinkingFor(model) } },
 				});
 				onUsage(model, r.usage);
-				if (process.env.SUMMARY_DEBUG) console.log(`    call ${model} ${((Date.now() - t0) / 1000).toFixed(0)}s in ${r.usage.inputTokens} out ${r.usage.outputTokens}`);
+				if (process.env.SUMMARY_DEBUG)
+					console.log(
+						`    call ${model} ${((Date.now() - t0) / 1000).toFixed(0)}s in ${r.usage.inputTokens} out ${r.usage.outputTokens}`,
+					);
 				return { out: r.output, model };
 			} catch (e) {
 				last = e;
-				if (process.env.SUMMARY_DEBUG) console.log(`    fail ${model} ${((Date.now() - t0) / 1000).toFixed(0)}s ${String((e as Error).message).slice(0, 160)}`);
+				if (process.env.SUMMARY_DEBUG)
+					console.log(
+						`    fail ${model} ${((Date.now() - t0) / 1000).toFixed(0)}s ${String((e as Error).message).slice(0, 160)}`,
+					);
 				if (isQuota(e)) cooling.set(model, Date.now() + 60_000);
 			}
 		}
@@ -207,11 +247,15 @@ function linePrompt(items: Item[], retry?: Map<number, string>) {
 			lastNode = head;
 		}
 		const why = retry?.get(i);
-		body.push(`[${i}]${why ? ` (previous attempt rejected: ${why})` : ""} ${it.block.text.replace(/\s*\n\s*/g, " ").trim()}`);
+		body.push(
+			`[${i}]${why ? ` (previous attempt rejected: ${why})` : ""} ${it.block.text.replace(/\s*\n\s*/g, " ").trim()}`,
+		);
 	});
 	return [
 		RULES,
-		retry ? "\nThese lines are a retry: a previous summary broke a rule (named per line). Keep every number and comparison sign of the original exactly once, nothing else numeric, and stay shorter than the original." : "",
+		retry
+			? "\nThese lines are a retry: a previous summary broke a rule (named per line). Keep every number and comparison sign of the original exactly once, nothing else numeric, and stay shorter than the original."
+			: "",
 		"\nLines (section headings are context only, do not summarise them):",
 		...body,
 	].join("\n");
@@ -227,11 +271,25 @@ function titlePrompt(nodes: Node[]) {
 	].join("\n");
 }
 
-export async function summarizeSpec(spec: ProtocolSpec, opts: SummarizeOptions = {}): Promise<{ spec: ProtocolSpec; stats: SummarizeStats }> {
+export async function summarizeSpec(
+	spec: ProtocolSpec,
+	opts: SummarizeOptions = {},
+): Promise<{ spec: ProtocolSpec; stats: SummarizeStats }> {
 	const batch = opts.batch ?? 25;
 	const batchChars = opts.batchChars ?? 6000;
 	const limit = opts.limit ?? ((fn) => fn());
-	const stats: SummarizeStats = { ok: 0, rejected: 0, retried: 0, lines: 0, titles: 0, calls: 0, tokensIn: 0, tokensOut: 0, models: {}, failedCalls: 0 };
+	const stats: SummarizeStats = {
+		ok: 0,
+		rejected: 0,
+		retried: 0,
+		lines: 0,
+		titles: 0,
+		calls: 0,
+		tokensIn: 0,
+		tokensOut: 0,
+		models: {},
+		failedCalls: 0,
+	};
 	const onUsage = (model: string, u: Usage) => {
 		stats.calls++;
 		stats.tokensIn += u.inputTokens ?? 0;
@@ -240,7 +298,11 @@ export async function summarizeSpec(spec: ProtocolSpec, opts: SummarizeOptions =
 	};
 
 	// Pack lines of consecutive nodes into calls; a big node spans several calls.
-	const todo: Item[] = spec.nodes.flatMap((node) => node.blocks.filter((b) => opts.force || !complete(b.sum)).map((block) => ({ node, block })));
+	const todo: Item[] = spec.nodes.flatMap((node) =>
+		node.blocks
+			.filter((b) => opts.force || !complete(b.sum))
+			.map((block) => ({ node, block })),
+	);
 	const chunks: Item[][] = [];
 	let cur: Item[] = [];
 	let chars = 0;
@@ -259,7 +321,8 @@ export async function summarizeSpec(spec: ProtocolSpec, opts: SummarizeOptions =
 
 	const titleNodes = spec.nodes.filter((n) => opts.force || !complete(n.titles));
 	const titleChunks: Node[][] = [];
-	for (let i = 0; i < titleNodes.length; i += 150) titleChunks.push(titleNodes.slice(i, i + 150));
+	for (let i = 0; i < titleNodes.length; i += 150)
+		titleChunks.push(titleNodes.slice(i, i + 150));
 	stats.titles = titleNodes.length;
 
 	const total = chunks.length + titleChunks.length;
@@ -298,7 +361,9 @@ export async function summarizeSpec(spec: ProtocolSpec, opts: SummarizeOptions =
 
 		const all = items.map((_, i) => i);
 		try {
-			const { out } = await limit(() => callModel(LineOut, linePrompt(items), onUsage));
+			const { out } = await limit(() =>
+				callModel(LineOut, linePrompt(items), onUsage),
+			);
 			apply(out, all, false);
 		} catch {
 			stats.failedCalls++;
@@ -310,7 +375,9 @@ export async function summarizeSpec(spec: ProtocolSpec, opts: SummarizeOptions =
 			const sub = idx.map((i) => items[i]);
 			const why = new Map(idx.map((orig, j) => [j, pending.get(orig) ?? ""]));
 			try {
-				const { out } = await limit(() => callModel(LineOut, linePrompt(sub, why), onUsage));
+				const { out } = await limit(() =>
+					callModel(LineOut, linePrompt(sub, why), onUsage),
+				);
 				apply(out, idx, true);
 			} catch {
 				stats.failedCalls++;
@@ -330,7 +397,9 @@ export async function summarizeSpec(spec: ProtocolSpec, opts: SummarizeOptions =
 
 	async function runTitles(nodes: Node[]) {
 		try {
-			const { out } = await limit(() => callModel(TitleOut, titlePrompt(nodes), onUsage));
+			const { out } = await limit(() =>
+				callModel(TitleOut, titlePrompt(nodes), onUsage),
+			);
 			for (const t of out.titles) {
 				const n = nodes[t.i];
 				if (!n) continue;
@@ -338,7 +407,12 @@ export async function summarizeSpec(spec: ProtocolSpec, opts: SummarizeOptions =
 				for (const lang of LANGS) {
 					const s = t[lang]?.replace(/\s+/g, " ").trim();
 					// Titles: numbers must survive too (section numbers, course numbers).
-					if (s && checkSummary(n.title, s, "fr") !== "numbers" && signs(n.title) === signs(s)) titles[lang] = s;
+					if (
+						s &&
+						checkSummary(n.title, s, "fr") !== "numbers" &&
+						signs(n.title) === signs(s)
+					)
+						titles[lang] = s;
 				}
 				n.titles = Object.keys(titles).length ? titles : n.titles;
 			}
@@ -355,8 +429,10 @@ export async function summarizeSpec(spec: ProtocolSpec, opts: SummarizeOptions =
 	counts.sumOk = all.reduce((a, b) => a + LANGS.filter((l) => b.sum?.[l]).length, 0);
 	counts.sumRejected = all.length * 3 - counts.sumOk;
 	counts.sumTitles = spec.nodes.filter((n) => complete(n.titles)).length;
-	counts.summarizeTokensIn = (opts.force ? 0 : (counts.summarizeTokensIn ?? 0)) + stats.tokensIn;
-	counts.summarizeTokensOut = (opts.force ? 0 : (counts.summarizeTokensOut ?? 0)) + stats.tokensOut;
+	counts.summarizeTokensIn =
+		(opts.force ? 0 : (counts.summarizeTokensIn ?? 0)) + stats.tokensIn;
+	counts.summarizeTokensOut =
+		(opts.force ? 0 : (counts.summarizeTokensOut ?? 0)) + stats.tokensOut;
 	return { spec, stats };
 }
 
@@ -367,12 +443,16 @@ export async function summarizeSpec(spec: ProtocolSpec, opts: SummarizeOptions =
 export function mergeSummaries(into: ProtocolSpec, from: ProtocolSpec): number {
 	const key = (b: Anchor) => `${b.page}\u0000${b.text}`;
 	const sums = new Map<string, Summaries>();
-	for (const n of from.nodes) for (const b of n.blocks) if (b.sum) sums.set(key(b), b.sum);
+	for (const n of from.nodes)
+		for (const b of n.blocks) if (b.sum) sums.set(key(b), b.sum);
 	const titles = new Map<string, Summaries>();
-	for (const n of from.nodes) if (n.titles) titles.set(`${n.id}\u0000${n.title}`, n.titles);
+	for (const n of from.nodes)
+		if (n.titles) titles.set(`${n.id}\u0000${n.title}`, n.titles);
 	let merged = 0;
 	for (const n of into.nodes) {
-		const t = titles.get(`${n.id}\u0000${n.title}`) ?? from.nodes.find((m) => m.title === n.title && m.titles)?.titles;
+		const t =
+			titles.get(`${n.id}\u0000${n.title}`) ??
+			from.nodes.find((m) => m.title === n.title && m.titles)?.titles;
 		if (t) n.titles = { ...n.titles, ...t };
 		for (const b of n.blocks) {
 			const s = sums.get(key(b));
@@ -382,11 +462,21 @@ export function mergeSummaries(into: ProtocolSpec, from: ProtocolSpec): number {
 			}
 		}
 	}
-	for (const k of ["sumOk", "sumRejected", "sumTitles", "summarizeTokensIn", "summarizeTokensOut"]) {
-		if (from.build.counts[k] !== undefined) into.build.counts[k] = from.build.counts[k];
+	for (const k of [
+		"sumOk",
+		"sumRejected",
+		"sumTitles",
+		"summarizeTokensIn",
+		"summarizeTokensOut",
+	]) {
+		if (from.build.counts[k] !== undefined)
+			into.build.counts[k] = from.build.counts[k];
 	}
 	const all = into.nodes.flatMap((n) => n.blocks);
-	into.build.counts.sumOk = all.reduce((a, b) => a + LANGS.filter((l) => b.sum?.[l]).length, 0);
+	into.build.counts.sumOk = all.reduce(
+		(a, b) => a + LANGS.filter((l) => b.sum?.[l]).length,
+		0,
+	);
 	into.build.counts.sumRejected = all.length * 3 - into.build.counts.sumOk;
 	return merged;
 }

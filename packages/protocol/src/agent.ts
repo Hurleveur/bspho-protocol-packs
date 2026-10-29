@@ -17,7 +17,9 @@ import type { Anchor, Node, ProtocolSpec } from "./spec.ts";
 
 const PROJECT = process.env.GOOGLE_CLOUD_PROJECT ?? "qwiklabs-gcp-01-ce74ae98024d";
 const MODELS = [
-	...(process.env.AGENT_MODEL ? [{ location: "global", model: process.env.AGENT_MODEL }] : []),
+	...(process.env.AGENT_MODEL
+		? [{ location: "global", model: process.env.AGENT_MODEL }]
+		: []),
 	{ location: "global", model: "gemini-3-flash-preview" },
 	{ location: "europe-west1", model: "gemini-2.5-flash" },
 ];
@@ -49,44 +51,82 @@ export interface Corpus {
 	included: string[];
 }
 
-export const lineKey = (a: Pick<Anchor, "page" | "text">) => `${a.page}:${a.text.slice(0, 40).replace(/["\\\n]/g, " ")}`;
+export const lineKey = (a: Pick<Anchor, "page" | "text">) =>
+	`${a.page}:${a.text.slice(0, 40).replace(/["\\\n]/g, " ")}`;
 const flat = (s: string) => s.replace(/\s*\n\s*/g, " ").trim();
 
 /** Line id → its anchor and node, for callers that resolve ids back to verbatim spans (consistency checks). */
 export type AnchorIndex = Map<string, { anchor: Anchor; nodeId: string }>;
 
-export function serializeOne(spec: ProtocolSpec, name: string, prefix: string, passages: Map<string, Passage>, byLineKey?: Map<string, string>, anchors?: AnchorIndex): string {
-	const out: string[] = [`=== PROTOCOL ${prefix ? `${prefix} ` : ""}${name} · version ${spec.doc.version}${spec.doc.date ? ` (${spec.doc.date})` : ""} · ${spec.doc.pageCount} pages`, `Title: ${flat(spec.doc.title)}`, ""];
+export function serializeOne(
+	spec: ProtocolSpec,
+	name: string,
+	prefix: string,
+	passages: Map<string, Passage>,
+	byLineKey?: Map<string, string>,
+	anchors?: AnchorIndex,
+): string {
+	const out: string[] = [
+		`=== PROTOCOL ${prefix ? `${prefix} ` : ""}${name} · version ${spec.doc.version}${spec.doc.date ? ` (${spec.doc.date})` : ""} · ${spec.doc.pageCount} pages`,
+		`Title: ${flat(spec.doc.title)}`,
+		"",
+	];
 	const idx = new Map(spec.nodes.map((n, i) => [n.id, i]));
-	const nid = (n: Node | string) => `${prefix}n${idx.get(typeof n === "string" ? n : n.id)}`;
+	const nid = (n: Node | string) =>
+		`${prefix}n${idx.get(typeof n === "string" ? n : n.id)}`;
 	const add = (id: string, n: Node, a: Anchor) => {
-		passages.set(id, { id, protocolId: spec.doc.id, protocol: name, version: spec.doc.version, nodeId: n.id, section: n.title, page: a.page, text: a.text });
+		passages.set(id, {
+			id,
+			protocolId: spec.doc.id,
+			protocol: name,
+			version: spec.doc.version,
+			nodeId: n.id,
+			section: n.title,
+			page: a.page,
+			text: a.text,
+		});
 		byLineKey?.set(lineKey(a), id);
 		anchors?.set(id, { anchor: a, nodeId: n.id });
 	};
 	for (const [i, n] of spec.nodes.entries()) {
 		const depth = Math.min(n.headingPath.length + 1, 5);
-		out.push(`${"#".repeat(depth)} [${nid(n)}] ${flat(n.title)}  {${n.kind}; pp.${n.pages.from}-${n.pages.to}${n.parent ? `; in ${nid(n.parent)}` : ""}}`);
+		out.push(
+			`${"#".repeat(depth)} [${nid(n)}] ${flat(n.title)}  {${n.kind}; pp.${n.pages.from}-${n.pages.to}${n.parent ? `; in ${nid(n.parent)}` : ""}}`,
+		);
 		const heads = listHeads(n.blocks);
 		const notes = countNotes(n.blocks);
 		for (const [j, a] of n.blocks.entries()) {
 			const id = `${prefix}n${i}.b${j}`;
 			add(id, n, a);
-			out.push(`[${id} p${a.page}] ${heads[j] ? `(in list "${heads[j]}") ` : ""}${flat(a.text)}${notes[j] ? ` (context note: ${notes[j]})` : ""}`);
+			out.push(
+				`[${id} p${a.page}] ${heads[j] ? `(in list "${heads[j]}") ` : ""}${flat(a.text)}${notes[j] ? ` (context note: ${notes[j]})` : ""}`,
+			);
 		}
 		for (const [j, f] of (n.figures ?? []).entries()) {
 			if (f.caption) {
 				const id = `${prefix}n${i}.f${j}`;
 				add(id, n, f.caption);
 				const note = countNotes([f.caption])[0];
-				out.push(`[${id} p${f.page}] (figure/table shown as page image; caption only) ${flat(f.caption.text)}${note ? ` (context note: ${note})` : ""}`);
-			} else out.push(`(figure/table on p${f.page}: image only, its content is not available as text)`);
+				out.push(
+					`[${id} p${f.page}] (figure/table shown as page image; caption only) ${flat(f.caption.text)}${note ? ` (context note: ${note})` : ""}`,
+				);
+			} else
+				out.push(
+					`(figure/table on p${f.page}: image only, its content is not available as text)`,
+				);
 		}
-		for (const nf of n.notFound ?? []) out.push(`(no ${nf.kind} section found in pp.${nf.searched.from}-${nf.searched.to})`);
+		for (const nf of n.notFound ?? [])
+			out.push(
+				`(no ${nf.kind} section found in pp.${nf.searched.from}-${nf.searched.to})`,
+			);
 		out.push("");
 	}
 	const steps = spec.nodes.filter((n) => n.kind === "step");
-	if (steps.length) out.push(`TREATMENT STEPS in document order: ${steps.map((s) => `${nid(s)} ${flat(s.title)}`).join(" | ")}`, "");
+	if (steps.length)
+		out.push(
+			`TREATMENT STEPS in document order: ${steps.map((s) => `${nid(s)} ${flat(s.title)}`).join(" | ")}`,
+			"",
+		);
 	if (spec.edges.length) {
 		out.push("FLOW EDGES (from -> to, kind; evidence sentence when known):");
 		for (const [k, e] of spec.edges.entries()) {
@@ -104,10 +144,15 @@ export function serializeOne(spec: ProtocolSpec, name: string, prefix: string, p
 	return out.join("\n");
 }
 
-const cache: Map<string, Corpus> = ((globalThis as { __agentCorpus?: Map<string, Corpus> }).__agentCorpus ??= new Map());
+const cache: Map<string, Corpus> = ((
+	globalThis as { __agentCorpus?: Map<string, Corpus> }
+).__agentCorpus ??= new Map());
 
 /** The protocol (and small sub-protocols) as one citable text. Cached per set of PDF hashes. */
-export function corpus(main: { spec: ProtocolSpec; name: string }, subs: { spec: ProtocolSpec; name: string }[]): Corpus {
+export function corpus(
+	main: { spec: ProtocolSpec; name: string },
+	subs: { spec: ProtocolSpec; name: string }[],
+): Corpus {
 	const key = [main.spec.doc.sha256, ...subs.map((s) => s.spec.doc.sha256)].join(",");
 	const hit = cache.get(key);
 	if (hit) return hit;
@@ -125,7 +170,16 @@ export function corpus(main: { spec: ProtocolSpec; name: string }, subs: { spec:
 		included.push(s.spec.doc.id);
 		for (const [k, v] of sub) passages.set(k, v);
 	}
-	const c: Corpus = { protocolId: main.spec.doc.id, text: parts.join("\n"), passages, byLineKey, nodeIndex: new Map(main.spec.nodes.map((n, i) => [n.id, i])), spec: main.spec, name: main.name, included };
+	const c: Corpus = {
+		protocolId: main.spec.doc.id,
+		text: parts.join("\n"),
+		passages,
+		byLineKey,
+		nodeIndex: new Map(main.spec.nodes.map((n, i) => [n.id, i])),
+		spec: main.spec,
+		name: main.name,
+		included,
+	};
 	cache.set(key, c);
 	return c;
 }
@@ -150,12 +204,23 @@ function describe(c: Corpus, loc: Location | undefined): string {
 	const at = node(loc.nodeId);
 	if (at) out.push(`- section on screen: ${at}`);
 	const step = node(loc.stepId);
-	if (step && loc.stepId !== loc.nodeId) out.push(`- treatment step open around it: ${step}`);
+	if (step && loc.stepId !== loc.nodeId)
+		out.push(`- treatment step open around it: ${step}`);
 	const line = loc.line ? c.byLineKey.get(loc.line) : undefined;
-	if (line) out.push(`- line they last clicked: [${line}] "${flat(c.passages.get(line)?.text ?? "")}"`);
-	const ticks = (loc.ticked ?? []).map((k) => c.byLineKey.get(k)).filter((x): x is string => !!x);
-	if (ticks.length) out.push(`- checklist rows they ticked: ${ticks.map((t) => `[${t}]`).join(" ")}`);
-	return out.length ? `The clinician is currently viewing ${c.name}:\n${out.join("\n")}\n(Resolve "this", "here", "this step", "next" against this location.)` : "";
+	if (line)
+		out.push(
+			`- line they last clicked: [${line}] "${flat(c.passages.get(line)?.text ?? "")}"`,
+		);
+	const ticks = (loc.ticked ?? [])
+		.map((k) => c.byLineKey.get(k))
+		.filter((x): x is string => !!x);
+	if (ticks.length)
+		out.push(
+			`- checklist rows they ticked: ${ticks.map((t) => `[${t}]`).join(" ")}`,
+		);
+	return out.length
+		? `The clinician is currently viewing ${c.name}:\n${out.join("\n")}\n(Resolve "this", "here", "this step", "next" against this location.)`
+		: "";
 }
 
 const RULES = `You are the protocol assistant inside a consult sheet used by paediatric haematology-oncology clinicians. You are a search and reading aid, not a medical device, and the clinician makes every decision.
@@ -203,14 +268,23 @@ export function cited(c: Corpus, text: string): Passage[] {
  * Stream an answer as plain text, then a record separator (\u001e) and a JSON trailer with the
  * cited passages. Falls back to the second model when the first fails before writing anything (429).
  */
-export function answer(c: Corpus, turns: Turn[], loc: Location | undefined, signal?: AbortSignal): ReadableStream<Uint8Array> {
+export function answer(
+	c: Corpus,
+	turns: Turn[],
+	loc: Location | undefined,
+	signal?: AbortSignal,
+): ReadableStream<Uint8Array> {
 	const where = describe(c, loc);
 	const last = turns.at(-1);
 	// The facet checklist rides in the last user turn, like the location, so the cached protocol prefix stays identical.
-	const facets = last?.role === "user" ? checklist(classify(last.content), last.content) : "";
+	const facets =
+		last?.role === "user" ? checklist(classify(last.content), last.content) : "";
 	const messages = turns.map((t, i) => ({
 		role: t.role,
-		content: i === turns.length - 1 && t.role === "user" && (where || facets) ? [where, facets, `Question: ${t.content}`].filter(Boolean).join("\n\n") : t.content,
+		content:
+			i === turns.length - 1 && t.role === "user" && (where || facets)
+				? [where, facets, `Question: ${t.content}`].filter(Boolean).join("\n\n")
+				: t.content,
 	}));
 	const enc = new TextEncoder();
 	return new ReadableStream({
@@ -221,7 +295,9 @@ export function answer(c: Corpus, turns: Turn[], loc: Location | undefined, sign
 				let wrote = false;
 				try {
 					const vertex = createVertex({ project: PROJECT, location });
-					const thinkingConfig = model.startsWith("gemini-3") ? { thinkingLevel: process.env.AGENT_THINKING ?? "low" } : { thinkingBudget: 512 };
+					const thinkingConfig = model.startsWith("gemini-3")
+						? { thinkingLevel: process.env.AGENT_THINKING ?? "low" }
+						: { thinkingBudget: 512 };
 					const r = streamText({
 						model: vertex(model),
 						instructions: instructions(c),
@@ -241,8 +317,14 @@ export function answer(c: Corpus, turns: Turn[], loc: Location | undefined, sign
 					}
 					const u = await r.usage;
 					// Token counts only: no question text, no patient values.
-					console.info(`[agent] ${c.protocolId} ${model} in=${u.inputTokens} cached=${u.inputTokenDetails.cacheReadTokens ?? 0} out=${u.outputTokens}`);
-					ctrl.enqueue(enc.encode(`\u001e${JSON.stringify({ model, passages: cited(c, full) })}`));
+					console.info(
+						`[agent] ${c.protocolId} ${model} in=${u.inputTokens} cached=${u.inputTokenDetails.cacheReadTokens ?? 0} out=${u.outputTokens}`,
+					);
+					ctrl.enqueue(
+						enc.encode(
+							`\u001e${JSON.stringify({ model, passages: cited(c, full) })}`,
+						),
+					);
 					ctrl.close();
 					return;
 				} catch (e) {
@@ -251,7 +333,11 @@ export function answer(c: Corpus, turns: Turn[], loc: Location | undefined, sign
 				}
 			}
 			console.error("[agent] failed", (last as Error)?.message);
-			ctrl.enqueue(enc.encode(`${full ? "\n\n" : ""}The assistant is busy. Try again in a moment.\u001e${JSON.stringify({ model: "", passages: cited(c, full), error: true })}`));
+			ctrl.enqueue(
+				enc.encode(
+					`${full ? "\n\n" : ""}The assistant is busy. Try again in a moment.\u001e${JSON.stringify({ model: "", passages: cited(c, full), error: true })}`,
+				),
+			);
 			ctrl.close();
 		},
 	});

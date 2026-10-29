@@ -12,15 +12,17 @@ const dry = args.includes("--dry");
 const registry = await store.registry();
 
 for (const id of args.filter((a) => !a.startsWith("--"))) {
-  const spec = await store.publishedSpec(id);
-  if (!spec) throw new Error(`${id}: no published spec`);
-  const family = registry.protocols.find((p) => p.id === id)?.family;
-  const before = new Map(spec.nodes.flatMap((n) => n.blocks.map((a) => [a, a.stage] as const)));
-  for (const n of spec.nodes) for (const a of n.blocks) delete a.stage;
-  const { staged, moved } = await stageWorkup(spec.nodes, spec.doc.title, family);
-  const changed = [...before].filter(([a, st]) => a.stage !== st).length;
-  console.log(
-    `${id}: ${staged} lines staged, ${changed} changed${moved.length ? `, now diagnostics: ${moved.join(", ")}` : ""}`,
-  );
-  if (!dry) await store.saveSpec(spec);
+	const spec = await store.publishedSpec(id);
+	if (!spec) throw new Error(`${id}: no published spec`);
+	const family = registry.protocols.find((p) => p.id === id)?.family;
+	const before = new Map(
+		spec.nodes.flatMap((n) => n.blocks.map((a) => [a, a.stage] as const)),
+	);
+	for (const n of spec.nodes) for (const a of n.blocks) delete a.stage;
+	const { staged, moved } = await stageWorkup(spec.nodes, spec.doc.title, family);
+	const changed = [...before].filter(([a, st]) => a.stage !== st).length;
+	console.log(
+		`${id}: ${staged} lines staged, ${changed} changed${moved.length ? `, now diagnostics: ${moved.join(", ")}` : ""}`,
+	);
+	if (!dry) await store.saveSpec(spec);
 }
