@@ -10,6 +10,7 @@ import { join } from "node:path";
 import type * as mupdf from "mupdf";
 import { openPdf, type PdfPage, readPage } from "@bspho/protocol/pdf";
 import { boilerplate, norm } from "@bspho/protocol/sections";
+import { LEAD_GLYPH } from "@bspho/protocol/summarize";
 import type { Anchor, Node, ProtocolSpec } from "@bspho/protocol/spec";
 
 export const ROOT = join(import.meta.dir, "..", "..");
@@ -496,6 +497,33 @@ export function runChecks(L: Loaded): {
 					n.blocks[0].text,
 				);
 		}
+		// summaries are scan-lines next to a checkbox: a copied list glyph shows as a stray bullet
+		const glyph = n.blocks.find((b) =>
+			Object.values(b.sum ?? {}).some((v) => LEAD_GLYPH.test(v)),
+		);
+		if (glyph)
+			add(
+				"summary_glyph",
+				"low",
+				n,
+				glyph.page,
+				"summary starts with a list glyph",
+				Object.values(glyph.sum ?? {})[0] ?? "",
+			);
+		// section shift: the section's own heading line sits inside its body, so the lines above it belong to the
+		// previous section (the heading's position on the page was wrong when the section was cut)
+		const own = n.blocks.findIndex(
+			(b, i) => i > 0 && sameTitle(b.text.split("\n")[0], n.title),
+		);
+		if (bare.length >= 6 && own > 0)
+			add(
+				"section_shift",
+				"high",
+				n,
+				n.blocks[own].page,
+				`heading line is block ${own + 1} of the section: the ${own} block(s) above it belong to the previous section`,
+				n.blocks[0].text,
+			);
 		// heading's own visual line: wrapped heading where the detected title is only one line of it
 		if (bare.length >= 6) {
 			const pg = L.page(n.pages.from);

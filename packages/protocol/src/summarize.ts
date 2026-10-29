@@ -13,6 +13,8 @@ import { normalize, numbers } from "./verify.ts";
 
 const PROJECT = process.env.GOOGLE_CLOUD_PROJECT ?? "qwiklabs-gcp-01-ce74ae98024d";
 const LANGS: Lang[] = ["en", "fr", "nl"];
+/** A list glyph at the start of a summary (bullets, PUA symbol-font bullets). */
+export const LEAD_GLYPH = /^(?:[•●▪◦■□♦◆►▸➢➤✓✔\uf000-\uf0ff]|[-–]\s)\s*/;
 
 const MODELS =
 	process.env.SUMMARY_MODEL === "flash"
@@ -392,7 +394,12 @@ export async function summarizeSpec(
 				const reasons: string[] = [];
 				for (const lang of LANGS) {
 					if (accepted[orig][lang]) continue;
-					const s = got?.[lang]?.replace(/\s+/g, " ").trim() ?? "";
+					// The checklist draws its own box: a copied list glyph is dropped.
+					const s =
+						got?.[lang]
+							?.replace(/\s+/g, " ")
+							.trim()
+							.replace(LEAD_GLYPH, "") ?? "";
 					const why = checkSummary(items[orig].block.text, s, lang);
 					if (!why) accepted[orig][lang] = s;
 					else reasons.push(`${lang}: ${why}`);

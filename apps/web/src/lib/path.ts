@@ -37,6 +37,8 @@ export interface RiskPath {
 	arms: Set<string>;
 	/** Arm keys that belong to this group only (not the shared trunk). */
 	own: Set<string>;
+	/** The section that defines who is in the group, when the spec names it. */
+	rule?: string;
 }
 
 const FLOW = new Set<Edge["kind"]>(["next", "alternative", "restratify_to"]);
@@ -113,6 +115,7 @@ function fromTreatment(t: Treatment, arms: Arm[], edges: Edge[]): RiskPath[] {
 			steps: on,
 			arms: new Set(g.arms),
 			own: new Set(g.arms.filter((a) => groupsOf.get(a) === 1)),
+			...(g.rule ? { rule: g.rule } : {}),
 		};
 	});
 }

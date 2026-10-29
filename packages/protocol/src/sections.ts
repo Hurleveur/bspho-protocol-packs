@@ -233,10 +233,22 @@ export function outlineHeadings(
 	}
 	return merged.map((f, i) => {
 		const key = norm(f.first).slice(0, 40);
+		// The text layer may carry the section number as its own span, or not at all: match the title without it too.
+		const bare = norm(
+			f.first.replace(
+				/^(?:\d{1,2}|[A-Z])(?:\.\d{1,2})*\.?\)?\s+(?:[-–—:]\s+)?/,
+				"",
+			),
+		).slice(0, 40);
 		const lines = pages[f.page - 1]?.lines ?? [];
-		const at = lines.findIndex(
-			(l) => norm(l.text).includes(key) || key.includes(norm(l.text)),
-		);
+		const at = lines.findIndex((l) => {
+			const t = norm(l.text);
+			// A line inside the title must be a real fragment, not an empty or one-word line.
+			return [key, bare].some(
+				(k) =>
+					k.length > 0 && (t.includes(k) || (t.length >= 4 && k.includes(t))),
+			);
+		});
 		const line = lines[at];
 		// The title may wrap onto following lines: they belong to the heading, not to its content.
 		let yEnd = line?.bbox[3] ?? 0;

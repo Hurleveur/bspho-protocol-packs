@@ -957,6 +957,8 @@ export function Pack({ data }: { data: PackData }) {
 									paths={paths}
 									path={path}
 									setPath={setPath}
+									byId={byId}
+									go={go}
 								/>
 								{sheet.risk.map((n) => (
 									<Block
@@ -977,6 +979,8 @@ export function Pack({ data }: { data: PackData }) {
 										paths={paths}
 										path={path}
 										setPath={setPath}
+										byId={byId}
+										go={go}
 									/>
 								)}
 								<TreatmentMap
@@ -3337,11 +3341,16 @@ function PathChips({
 	paths,
 	path,
 	setPath,
+	byId,
+	go,
 }: {
 	paths: RiskPath[];
 	path: RiskPath | null;
 	setPath: (id: string | null) => void;
+	byId: Map<string, Node>;
+	go: (t: Target) => void;
 }) {
+	const rule = path?.rule ? byId.get(path.rule) : undefined;
 	if (!paths.length) return null;
 	const chip = (on: boolean) =>
 		`rounded-full border px-3 py-1 text-[13px] transition-colors ${on ? "border-accent bg-accent text-white" : "border-line bg-surface text-ink/85 hover:border-accent hover:text-accent"}`;
@@ -3373,6 +3382,36 @@ function PathChips({
 					All groups
 				</button>
 			</div>
+			{path && (
+				<p className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-line pt-2.5 text-sm text-muted">
+					<span>
+						<span className="font-medium text-ink">{path.label}</span>:{" "}
+						{path.segments
+							.map((g) => g.arm.short || g.arm.label)
+							.join(" → ")}{" "}
+						· {path.steps.size} steps, other arms folded
+					</span>
+					<button
+						type="button"
+						onClick={() =>
+							go({ nodeId: path.segments[0]?.steps[0]?.id ?? "" })
+						}
+						className="text-accent hover:underline"
+					>
+						Go to the path
+					</button>
+					{rule && (
+						<button
+							type="button"
+							onClick={() => go({ nodeId: rule.id })}
+							className="text-accent hover:underline"
+						>
+							Who is in this group: {splitNumber(rule.title)[1]} (p.{" "}
+							{rule.pages.from})
+						</button>
+					)}
+				</p>
+			)}
 		</div>
 	);
 }
