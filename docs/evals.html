@@ -1,4 +1,3 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Protocol Pack Evals</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -75,7 +74,7 @@ ol.loop { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
       <div class="layer"><span class="n">Layer 1</span><b>Verifier tests</b><span class="small muted">Quotes and numbers must match the page</span><span class="big">6/6</span></div>
       <div class="layer"><span class="n">Layer 2</span><b>Extraction checks</b><span class="small muted">17 failure classes (11 extraction, 6 treatment flow) over all 32 protocols</span><span class="big">12 s</span></div>
       <div class="layer"><span class="n">Layer 3</span><b>Vision judge</b><span class="small muted">Gemini 3.1 Pro compares page image with our sheet. 124 sections judged</span><span class="big" id="judge-tile">10/10 precise</span></div>
-      <div class="layer"><span class="n">Layer 4</span><b>Golden questions</b><span class="small muted">Organisers' 7 scorable clinical questions</span><span class="big">89%</span></div>
+      <div class="layer"><span class="n">Layer 4</span><b>Golden questions</b><span class="small muted">Organisers' 7 scorable clinical questions</span><span class="big">97%</span></div>
     </div>
   </header>
 
@@ -161,21 +160,21 @@ ol.loop { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
     <div class="scroll"><table>
       <thead><tr><th>Question</th><th>Path</th><th>Mode</th><th class="n">Pages hit</th><th class="n">Facts</th><th class="n">Numbers in cited text</th><th class="n">Latency</th><th class="n">Score</th></tr></thead>
       <tbody>
-        <tr><td>Q1 Conditions before dinutuximab</td><td>Ask (BEACON2 + HR-NBL2)</td><td><span class="pill good">answer</span></td><td class="n">5/5</td><td class="n">6/10</td><td class="n">29/29</td><td class="n">9.7 s</td><td class="n">90%</td></tr>
-        <tr><td>Q2 Staging, 3-year-old neuroblastoma</td><td>Assistant · HR-NBL2</td><td><span class="pill good">answer</span></td><td class="n">18/18</td><td class="n">5/8</td><td class="n">4/4</td><td class="n">8.4 s</td><td class="n">91%</td></tr>
-        <tr><td>Q3 FaR-RMS staging investigations</td><td>Assistant · FaR-RMS</td><td><span class="pill good">answer</span></td><td class="n">5/7</td><td class="n">5/9</td><td class="n">5/5</td><td class="n">7.1 s</td><td class="n">82%</td></tr>
-        <tr><td>Q4 150,000 WBC, acute management</td><td>Ask (CHIP-AML22 + ALLTogether1)</td><td><span class="pill good">answer</span></td><td class="n">8/8</td><td class="n">6/9</td><td class="n">21/23</td><td class="n">10.2 s</td><td class="n">92%</td></tr>
-        <tr><td>Q5 Adult antihypertensive</td><td>Ask</td><td><span class="pill good">refused</span></td><td class="n">n/a</td><td class="n">n/a</td><td class="n">n/a</td><td class="n">1.0 s</td><td class="n">100%</td></tr>
-        <tr><td>Q6 Child asthma step-up</td><td>Ask</td><td><span class="pill good">refused</span></td><td class="n">n/a</td><td class="n">n/a</td><td class="n">n/a</td><td class="n">2.1 s</td><td class="n">100%</td></tr>
-        <tr><td>Q7 Stroke-like event on ALLTogether1</td><td>Assistant · ALLTogether1 + subs</td><td><span class="pill good">answer</span></td><td class="n">4/8</td><td class="n">2/7</td><td class="n">9/9</td><td class="n">17.7 s</td><td class="n">70%</td></tr>
-        <tr><td><b>All 7</b></td><td></td><td><b>7/7</b></td><td class="n"><b>40/46</b></td><td class="n"><b>24/43</b></td><td class="n"><b>68/70</b></td><td></td><td class="n"><b>89%</b></td></tr>
+        <tr><td>Q1 Conditions before dinutuximab</td><td>Ask (BEACON2 + HR-NBL2)</td><td><span class="pill good">answer</span></td><td class="n">5/5</td><td class="n">9/10</td><td class="n">32/32</td><td class="n">13.2 s</td><td class="n">98%</td></tr>
+        <tr><td>Q2 Staging, 3-year-old neuroblastoma</td><td>Assistant · HR-NBL2</td><td><span class="pill good">answer</span></td><td class="n">18/18</td><td class="n">8/8</td><td class="n">9/9</td><td class="n">5.9 s</td><td class="n">100%</td></tr>
+        <tr><td>Q3 FaR-RMS staging investigations</td><td>Assistant · FaR-RMS</td><td><span class="pill good">answer</span></td><td class="n">7/7</td><td class="n">8/9</td><td class="n">15/15</td><td class="n">7.3 s</td><td class="n">97%</td></tr>
+        <tr><td>Q4 150,000 WBC, acute management</td><td>Ask (CHIP-AML22 + ALLTogether1)</td><td><span class="pill good">answer</span></td><td class="n">8/8</td><td class="n">8/9</td><td class="n">14/15</td><td class="n">10.3 s</td><td class="n">97%</td></tr>
+        <tr><td>Q5 Adult antihypertensive</td><td>Ask</td><td><span class="pill good">refused</span></td><td class="n">n/a</td><td class="n">n/a</td><td class="n">n/a</td><td class="n">3.8 s</td><td class="n">100%</td></tr>
+        <tr><td>Q6 Child asthma step-up</td><td>Ask</td><td><span class="pill good">refused</span></td><td class="n">n/a</td><td class="n">n/a</td><td class="n">n/a</td><td class="n">1.6 s</td><td class="n">100%</td></tr>
+        <tr><td>Q7 Stroke-like event on ALLTogether1</td><td>Assistant · ALLTogether1 + subs</td><td><span class="pill good">answer</span></td><td class="n">7/8</td><td class="n">5/7</td><td class="n">8/8</td><td class="n">19.9 s</td><td class="n">90%</td></tr>
+        <tr><td><b>All 7</b></td><td></td><td><b>7/7</b></td><td class="n"><b>45/46</b></td><td class="n"><b>38/43</b></td><td class="n"><b>78/79</b></td><td></td><td class="n"><b>97%</b></td></tr>
       </tbody>
     </table></div>
     <div class="two">
       <div class="stack">
         <h3>What the numbers say</h3>
-        <p>Safety holds: both out-of-scope questions are refused in about two seconds, and 68 of 70 numbers in the answers appear in the passages they cite (the two that do not are a WBC of 100,000 and a page number, both restated from the question). Coverage is the weak point: 24 of 43 reference facts. Most misses are facts our spec has but the answer leaves out: the non-haematological criteria for dinutuximab, "WBC of 50 or more means high risk" in Q4, and the thrombosis and CNS causes in Q7.</p>
-        <p>In progress: answers built from a checklist per question type (before starting a drug: blood counts, organ function, other conditions; acute management: immediate actions, risk group, next step; complication: causes, work-up, drug handling, reporting), a fast coverage check, and retrieval that pulls in a step's start requirements whenever a question names its drug.</p>
+        <p>Safety holds: both out-of-scope questions are refused, and 78 of 79 numbers in the answers appear in the passages they cite. 38 of 43 reference facts are covered with no contradictions. Answers open with the direct answer, then cover the question type's checklist (before starting a drug: blood counts, organ function, other conditions; acute management: immediate actions, risk group, next step; complication: causes, work-up, drug handling, reporting; staging: each investigation and what it is for).</p>
+        <p>What is left: one fact that exists only in an image-only table (ALLTogether1 pp. 358-359), facts a run sometimes drops (Q4, Q7), and the two disputed items below. Over five fresh runs the score stays between 97% and 98%.</p>
       </div>
       <div class="stack">
         <h3>Where the answer key and the PDFs disagree</h3>
@@ -197,5 +196,3 @@ ol.loop { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
     <p class="small muted">Everything here runs from <code>scripts/eval/</code>: <code>checks.ts</code>, <code>judge.ts</code>, <code>run.ts</code> (report with deltas against the previous run) and <code>golden.ts</code>. Build-time model cost is not a constraint, so the judge and the pipeline use Gemini 3.1 Pro with high thinking.</p>
   </section>
 </div>
-
-</body></html>
