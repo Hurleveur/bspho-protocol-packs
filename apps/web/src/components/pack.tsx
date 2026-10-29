@@ -46,6 +46,7 @@ import { CaseBar, CaseDialogs, CaseHeaderButtons } from "./case/case-bar";
 import { CaseStepPanel } from "./case/step-panel";
 import { type CaseApi, useCase } from "./case/use-case";
 import { CheckThese, FindingFlag } from "./check-these";
+import { Doses, doseGroups } from "./doses";
 import { FigureTable } from "./figure-table";
 import { ProtocolMenu } from "./protocol-menu";
 import { PROTO_LANGS, type ProtoLang, summaryOf, titleOf, useProtoLang } from "./proto-lang";
@@ -170,6 +171,9 @@ function useSheet(spec: Spec) {
 
 /* ------------------------------------------------------------------ page */
 
+/** When the source pane last turned a page by wheel: one flick turns one page. */
+let lastFlip = 0;
+
 export function Pack({ data }: { data: PackData }) {
 	const { spec, entry, localRules } = data;
 	const sheet = useSheet(spec);
@@ -184,6 +188,31 @@ export function Pack({ data }: { data: PackData }) {
 		sha?: string;
 		label?: string;
 	} | null>(null);
+	// Source pane width in px, dragged from its left edge; null = the default (36vw, at most 680px).
+	const [paneW, setPaneW] = useState<number | null>(null);
+	useEffect(() => {
+		try {
+			const w = Number(localStorage.getItem("bspho:paneW"));
+			if (w > 0) setPaneW(w);
+		} catch {}
+	}, []);
+	const dragPane = (e: React.PointerEvent) => {
+		e.preventDefault();
+		const move = (ev: PointerEvent) =>
+			setPaneW(Math.round(Math.min(Math.max(window.innerWidth - ev.clientX, 360), window.innerWidth * 0.75)));
+		const up = () => {
+			window.removeEventListener("pointermove", move);
+			window.removeEventListener("pointerup", up);
+			setPaneW((w) => {
+				try {
+					if (w) localStorage.setItem("bspho:paneW", String(w));
+				} catch {}
+				return w;
+			});
+		};
+		window.addEventListener("pointermove", move);
+		window.addEventListener("pointerup", up);
+	};
 	const findings = useMemo(
 		() => [...(spec.findings ?? []), ...data.crossFindings],
 		[spec, data.crossFindings],
@@ -659,6 +688,7 @@ export function Pack({ data }: { data: PackData }) {
 	const placed = new Set<string>();
 	const pinnedNode = pinned ? byId.get(pinned) : undefined;
 
+	const doses = doseGroups(spec.nodes);
 	const toc: { id: string; label: string; steps?: Node[]; count?: number }[] = [
 		sheet.diagnostics.length
 			? { id: "diagnostics", label: "Diagnosis work-up" }
@@ -673,6 +703,7 @@ export function Pack({ data }: { data: PackData }) {
 		sheet.care.length || spec.monitoring
 			? { id: "care", label: "Supportive care & toxicity" }
 			: null,
+		doses.length ? { id: "doses", label: "Doses" } : null,
 		sheet.more.length
 			? { id: "more", label: "Eligibility, drugs & schedules" }
 			: null,
@@ -682,7 +713,10 @@ export function Pack({ data }: { data: PackData }) {
 	].filter((x) => x !== null);
 
 	return (
-		<div className="pack-shell min-h-screen">
+		<div
+			className="pack-shell min-h-screen"
+			style={{ "--pane": paneW ? `${paneW}px` : "min(36vw,680px)" } as React.CSSProperties}
+		>
 			<header className="no-print sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-line bg-surface px-5">
 				<ProtocolMenu current={entry.id} protocols={data.protocols} />
 				<div className="h-6 w-px bg-line" />
@@ -784,7 +818,7 @@ export function Pack({ data }: { data: PackData }) {
 				</nav>
 
 				<main
-					className={`min-w-0 flex-1 pt-8 pb-24 ${pane ? "mr-[min(36vw,680px)] px-6" : "px-10"}`}
+					className={`min-w-0 flex-1 pt-8 pb-24 ${pane ? "mr-(--pane) px-6" : "px-10"}`}
 				>
 					<div
 						ref={stick}
@@ -1061,6 +1095,17 @@ export function Pack({ data }: { data: PackData }) {
 							</SheetSection>
 						)}
 
+						{doses.length > 0 && (
+							<SheetSection id="doses" title="Doses">
+								<Doses
+									groups={doses}
+									sha={ctx.sha}
+									active={ctx.active}
+									show={ctx.show}
+								/>
+							</SheetSection>
+						)}
+
 						{sheet.more.length > 0 && (
 							<SheetSection
 								id="more"
@@ -1115,8 +1160,23 @@ export function Pack({ data }: { data: PackData }) {
 			{pane && (
 				<aside
 					aria-label="Source page"
-					className="no-print fixed top-16 right-0 bottom-0 z-20 flex w-[min(36vw,680px)] flex-col border-l border-line bg-line/60 shadow-[-8px_0_24px_-12px_rgb(0_0_0/0.15)]"
+					className="no-print fixed top-16 right-0 bottom-0 z-20 flex w-(--pane) flex-col border-l border-line bg-line/60 shadow-[-8px_0_24px_-12px_rgb(0_0_0/0.15)]"
 				>
+					{/* Drag the left edge to widen the page (double-click resets). */}
+					<div
+						role="separator"
+						aria-orientation="vertical"
+						aria-label="Resize the source page"
+						title="Drag to resize"
+						onPointerDown={dragPane}
+						onDoubleClick={() => {
+							setPaneW(null);
+							try {
+								localStorage.removeItem("bspho:paneW");
+							} catch {}
+						}}
+						className="absolute top-0 bottom-0 -left-1.5 z-10 w-3 cursor-col-resize after:absolute after:inset-y-0 after:left-1.5 after:w-px after:bg-transparent hover:after:bg-accent"
+					/>
 					<div className="flex items-center gap-2 border-b border-line bg-surface px-4 py-2 text-sm">
 						<FileText size={16} className="text-muted" />
 						<span className="font-medium">
@@ -1161,7 +1221,25 @@ export function Pack({ data }: { data: PackData }) {
 							</button>
 						</div>
 					</div>
-					<div className="min-h-0 flex-1 overflow-y-auto p-4">
+					<div
+						className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4"
+						// Like a PDF viewer: scrolling past the end of a page turns to the next one, past the top to the previous.
+						onWheel={(e) => {
+							const el = e.currentTarget;
+							const now = Date.now();
+							if (now - lastFlip < 450 || Math.abs(e.deltaY) < 8) return;
+							const last = pane.sha ? Number.POSITIVE_INFINITY : spec.doc.pageCount;
+							if (e.deltaY > 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 2 && pane.page < last) {
+								lastFlip = now;
+								setPane((p) => p && { ...p, page: p.page + 1 });
+								requestAnimationFrame(() => el.scrollTo({ top: 0 }));
+							} else if (e.deltaY < 0 && el.scrollTop <= 1 && pane.page > 1) {
+								lastFlip = now;
+								setPane((p) => p && { ...p, page: p.page - 1 });
+								requestAnimationFrame(() => el.scrollTo({ top: el.scrollHeight }));
+							}
+						}}
+					>
 						<PageImage
 							sha={pane.sha ?? sha}
 							page={pane.page}
@@ -1224,6 +1302,7 @@ const SECTION_NAMES: Record<string, string> = {
 	treatment: "Treatment",
 	response: "Response & re-stratification",
 	care: "Supportive care & toxicity",
+	doses: "Doses",
 	more: "Eligibility, drugs & schedules",
 	check: "Check these",
 	pinned: "the opened section",
@@ -1235,6 +1314,7 @@ const SPINE: Record<string, string> = {
 	risk: "Risk groups",
 	response: "Response",
 	care: "Supportive care",
+	doses: "Doses",
 	more: "Drugs & schedules",
 };
 
@@ -1922,9 +2002,9 @@ function SectionGroup({
 	const items = lines.filter((i) => !i.a.technique);
 	const technique = lines.filter((i) => i.a.technique);
 	const page = lines[0]?.a.page;
-	const technical =
-		items.length > 6 &&
-		items.reduce((n, i) => n + i.a.text.length, 0) / items.length > 70;
+	// Work-up lists stay open: a step's items are re-sorted from several lists, folding by length hid real
+	// investigations. Technique text is folded by its own flag (`technique`) below.
+	const technical = false;
 	const body = (
 		<>
 			{items.length > 0 && <Checklist items={items} ctx={ctx} compact />}

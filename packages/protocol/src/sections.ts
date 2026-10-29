@@ -74,6 +74,8 @@ function classify(l: Line, height: number, body: number, boiler: Set<string>): {
 	if (new Set(words).size <= words.length / 2) return null; // "EOT EOT"
 	if (/[,;]$/.test(t) || (t.endsWith(".") && !t.endsWith("..")) || count(t, /\p{L}/gu) < 4) return null;
 	if (/\.{4,}|…{2,}|[<>=≤≥±]|\d\s*\/\s*[lL]\b/.test(t)) return null; // TOC line or lab value
+	// A heading never closes a parenthesis it did not open: "B19, HIV 1/2, HAV, HBV, HCV, VZV)" is a wrapped list line.
+	if (count(t, /\)/g) > count(t, /\(/g)) return null;
 	const styled = l.bold || l.size >= body + 0.9;
 	const m = NUMBERED.exec(t);
 	if (m) {

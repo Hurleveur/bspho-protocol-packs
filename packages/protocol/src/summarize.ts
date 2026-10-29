@@ -16,7 +16,10 @@ const LANGS: Lang[] = ["en", "fr", "nl"];
 
 const MODELS =
 	process.env.SUMMARY_MODEL === "flash"
-		? [{ location: "global", model: "gemini-3-flash-preview" }]
+		? [
+				{ location: "global", model: "gemini-3-flash-preview" },
+				{ location: "europe-west1", model: "gemini-2.5-flash" },
+			]
 		: [
 				{ location: "global", model: "gemini-3.1-pro-preview" },
 				{ location: "europe-west1", model: "gemini-2.5-pro" },
@@ -108,6 +111,7 @@ const RULES = [
 	"- If the line is already short (about 60 characters or less) or is a table fragment, keep it as is in its own language and translate it literally for the others.",
 	"Hard rules (code rejects the line otherwise):",
 	"- Only that one line: never merge lines, never add facts, numbers or advice.",
+	"- Keep the logic exactly: negations, conditions and exceptions ('not', 'unless', 'even if', 'only', 'except', 'or' vs 'and') must survive in every language.",
 	"- Every threshold, dose, count, duration and timing (any number with a unit, %, ×10⁹/L, mg, Gy, days, weeks, or with ≥ ≤ < >) appears exactly as written, with its comparison sign. Do not convert units, round, or spell numbers as words. Any number you write must be in the original. Drug, gene and test names unchanged.",
 	"- French and Dutch: correct Belgian clinical terminology (e.g. 'ponction lombaire', 'moelle osseuse', 'beenmergpunctie', 'lumbaalpunctie').",
 	"Return one entry per input index, all indices.",
