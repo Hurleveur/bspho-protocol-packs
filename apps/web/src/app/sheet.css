@@ -1,0 +1,75 @@
+/* Consult sheet: print handout and projection helpers. Tokens live in globals.css. */
+/* Only on paper: the consult handout's provenance line. */
+.print-only {
+	display: none;
+}
+
+@media print {
+	@page {
+		margin: 16mm 14mm;
+	}
+	.no-print {
+		display: none !important;
+	}
+	/* On paper the page reference is the provenance: always shown. */
+	.page-ref {
+		opacity: 1 !important;
+	}
+	.print-only {
+		display: block;
+	}
+	html,
+	body {
+		background: white;
+		height: auto !important;
+		font-size: 11pt;
+	}
+	/* The screen layout is a fixed-height app shell; on paper it must flow. */
+	.pack-shell,
+	.pack-body,
+	.pack-shell main {
+		display: block !important;
+		height: auto !important;
+		overflow: visible !important;
+		padding: 0 !important;
+	}
+	.pack-shell article {
+		max-width: none !important;
+	}
+	.pack-shell section,
+	.pack-shell button {
+		break-inside: avoid;
+	}
+	.pack-shell button {
+		color: inherit;
+	}
+}
+
+/* A chip points at its line: a brief highlight, no motion for those who opt out. */
+.flash {
+	animation: flash 1.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes flash {
+	0%,
+	30% {
+		background-color: var(--mark);
+	}
+	100% {
+		background-color: transparent;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.flash {
+		animation: none;
+		outline: 2px solid var(--accent);
+		outline-offset: -2px;
+	}
+}
+
+@media print {
+	/* Checklist boxes print as boxes, ticked or empty. */
+	[role="checkbox"] {
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+	}
+}

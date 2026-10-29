@@ -1,0 +1,532 @@
+[
+ {
+  "id": "alcl-99-nhl",
+  "short": "ALCL-99-NHL",
+  "title": "International Protocol for the Treatment of Childhood Anaplastic Large Cell Lymphoma (ALCL 99) (NHL 2000 06)",
+  "version": "2000-06",
+  "file": "protocols/ALCL-99-NHL_2000_06.pdf",
+  "kind": "protocol",
+  "family": "lymphoma",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "alltogether1",
+  "short": "ALLTogether1",
+  "title": "ALLTogether1 – A Treatment study protocol of the ALLTogether Consortium for children and young adults (0-45 years of age) with newly diagnosed acute lymphoblastic leukaemia (ALL)",
+  "version": "v6.0 (07 Mar 2025)",
+  "file": "protocols/ALLTogether1 Master Protocol v6.0 07Mar25_CLEAN3_signed.pdf",
+  "kind": "protocol",
+  "family": "leukaemia",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "beacon2",
+  "short": "BEACON2",
+  "title": "BEACON2: A Multi-Arm, Multi-Stage Platform Trial For Relapsed Neuroblastoma",
+  "version": "",
+  "file": "protocols/D1_Protocol 2024-516115-24.pdf",
+  "kind": "protocol",
+  "family": "neuroblastoma",
+  "hospitals": [
+   "UZG"
+  ]
+ },
+ {
+  "id": "chip-aml22",
+  "short": "CHIP-AML22",
+  "title": "CHIP-AML22: An open label complex clinical trial in newly diagnosed pediatric de novo AML patients – a study by the NOPHO-DB-SHIP consortium",
+  "version": "v2.2 (20 Oct 2023)",
+  "file": "protocols/D1_CHIP-AML22_Master_protocol_v2-2_20OCT2023_FINAL_Signed.pdf",
+  "kind": "protocol",
+  "family": "leukaemia",
+  "hospitals": [
+   "UZL",
+   "UCL",
+   "UZG"
+  ]
+ },
+ {
+  "id": "ee2012-stbsg",
+  "short": "EE2012 (STBSG)",
+  "title": "Euro Ewing 2012: International Randomised Controlled Trial for the Treatment of Newly Diagnosed Ewing's Sarcoma Family of Tumours",
+  "version": "v5.0 (02 Jun 2017)",
+  "file": "protocols/EE2012-Protocolv5.0_1402-STBSG-EE2012-_02Jun2017.pdf",
+  "kind": "protocol",
+  "family": "bone_tumours",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "euramos-1",
+  "short": "EURAMOS 1",
+  "title": "EURAMOS-1: A randomized trial of the European and American Osteosarcoma Study Group to optimize treatment strategies for resectable osteosarcoma based on histological response to pre-operative chemotherapy",
+  "version": "v3.0 (21 Jul 2011)",
+  "file": "protocols/Protocol-EURAMOS1_v3-0_21-07-2011_FINAL_clean.pdf",
+  "kind": "protocol",
+  "family": "bone_tumours",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "euronet-phl-c2",
+  "short": "EuroNet-PHL-C2",
+  "title": "EuroNet-PHL-C2: Second International Inter-Group Study for Classical Hodgkin’s Lymphoma in Children and Adolescents",
+  "version": "final 7.0 (05 Sep 2020)",
+  "file": "protocols/EuroNet-PHL-C2_trial_protocol_final7.0_2020-09-05.pdf",
+  "kind": "protocol",
+  "family": "lymphoma",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "euronet-recommendations",
+  "short": "EuroNet recommendations",
+  "title": "EuroNet recommendations for Pediatric Hodgkin Lymphoma",
+  "version": "6-2023",
+  "file": "protocols/EuroNet recommendations 6-2023.pdf",
+  "kind": "protocol",
+  "family": "lymphoma",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "ewog-mds-2006",
+  "short": "EWOG-MDS 2006",
+  "title": "EWOG-MDS 2006: Prospective non–randomized multi-center study for epidemiology and characterization of Myelodysplastic Syndromes (MDS) and Juvenile Myelomonocytic Leukemia (JMML) in childhood",
+  "version": "30 Nov 2006",
+  "file": "protocols/Protocol EWOG-MDS 2006_version 30112006.pdf",
+  "kind": "protocol",
+  "family": "leukaemia",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "ewog-saa-2010",
+  "short": "EWOG-SAA 2010",
+  "title": "EWOG-SAA 2010: Genetic and Immunological Characterization of Acquired Severe Aplastic Anemia (SAA) in Children and Adolescents",
+  "version": "final (24 Apr 2012)",
+  "file": "protocols/EWOG-SAA-2010-Final_120424.pdf",
+  "kind": "protocol",
+  "family": "marrow_failure_histiocytosis",
+  "hospitals": [
+   "UZL",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "far-rms",
+  "short": "FaR-RMS",
+  "title": "FaR-RMS: An overarching study for children and adults with Frontline and Relapsed RhabdoMyoSarcoma",
+  "version": "v2.0c (21 Mar 2024)",
+  "file": "protocols/FaR-RMS Protocol Version 2.0c 21-Mar-2024.pdf",
+  "kind": "protocol",
+  "family": "soft_tissue_sarcoma",
+  "hospitals": [
+   "UZL",
+   "UCL",
+   "UZG"
+  ]
+ },
+ {
+  "id": "hlh-2004",
+  "short": "HLH 2004",
+  "title": "HLH-2004: Treatment Protocol of the Second International HLH Study 2004",
+  "version": "",
+  "file": "protocols/HLH2004-Protocol.pdf",
+  "kind": "protocol",
+  "family": "marrow_failure_histiocytosis",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "hrnbl2",
+  "short": "HRNBL2",
+  "title": "High-Risk Neuroblastoma Study 2 of SIOP-Europa-Neuroblastoma (SIOPEN) (HR-NBL2/SIOPEN)",
+  "version": "",
+  "file": "protocols/D1_Protocol HRNBL2_2019-001068-31_Clean.pdf",
+  "kind": "protocol",
+  "family": "neuroblastoma",
+  "hospitals": [
+   "UZL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "iee-isf-04-a",
+  "short": "iEE ISF 04 a",
+  "title": "iEuroEwing: International Euro Ewing Trial for Treatment Optimisation in Patients with Ewing Sarcoma",
+  "version": "v1.5",
+  "file": "protocols/iEE_ISF_04_a_Protocol_Version_1.5.pdf",
+  "kind": "protocol",
+  "family": "bone_tumours",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "if-21",
+  "short": "IF-21",
+  "title": "Interfant-21: International collaborative treatment protocol for infants under one year with KMT2A-rearranged acute lymphoblastic leukemia or mixed phenotype acute leukemia",
+  "version": "v1.4 (18 Feb 2025)",
+  "file": "protocols/IF-21_Protocol_v1.4_18Feb2025.pdf",
+  "kind": "protocol",
+  "family": "leukaemia",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "inter-b-nhl-ritux-2010",
+  "short": "Inter-B-NHL ritux 2010",
+  "title": "Protocol Inter-B-NHL ritux 2010: Intergroup Trial for Children or Adolescents with B-Cell NHL or B-AL: Evaluation of Rituximab Efficacy and Safety in High Risk Patients",
+  "version": "v4 (14 Dec 2015)",
+  "file": "protocols/Inter-B-NHLritux2010V414dec2015_clean.pdf",
+  "kind": "protocol",
+  "family": "lymphoma",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "lch-iv",
+  "short": "LCH-IV",
+  "title": "LCH-IV: International Collaborative Treatment Protocol for Children and Adolescents with Langerhans Cell Histiocytosis",
+  "version": "v1.7 (01 Nov 2022)",
+  "file": "protocols/LCH-IV_Protocol_v1.7_01NOV2022.pdf",
+  "kind": "protocol",
+  "family": "marrow_failure_histiocytosis",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "lines",
+  "short": "LINES",
+  "title": "European Low and Intermediate Risk Neuroblastoma Protocol: A SIOPEN Study (LINES)",
+  "version": "v8.0",
+  "file": "protocols/LINES_Protocol_version-8.0.pdf",
+  "kind": "protocol",
+  "family": "neuroblastoma",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "ml-ds-2018",
+  "short": "ML DS 2018",
+  "title": "Phase III Clinical Trial for CPX-351 in Myeloid Leukemia in Children with Down Syndrome 2018 (ML-DS 2018)",
+  "version": "v3.0",
+  "file": "protocols/01_Protocol_ML_DS_2018_v3_0_clean.pdf",
+  "kind": "protocol",
+  "family": "leukaemia",
+  "hospitals": [
+   "UZL",
+   "UCL",
+   "UZG"
+  ]
+ },
+ {
+  "id": "phitt",
+  "short": "PHITT",
+  "title": "Paediatric Hepatic International Tumour Trial (PHITT)",
+  "version": "v3.0 (17 Oct 2018)",
+  "file": "protocols/PHITT-Protocol_version-3-0-17Oct2018.pdf",
+  "kind": "protocol",
+  "family": "liver_tumours",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "siop-ependymoma-ii",
+  "short": "SIOP Ependymoma II",
+  "title": "SIOP Ependymoma Program II: An international clinical program for the diagnosis and treatment of children, adolescents and young adults with ependymoma",
+  "version": "v4.0 (11 Jul 2022)",
+  "file": "protocols/2013-002766-39_PROTOCOLE_Final_V4.0_20220711_SIOP Ependymoma II.pdf",
+  "kind": "protocol",
+  "family": "cns_tumours",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "siop-hrmb",
+  "short": "SIOP HRMB",
+  "title": "SIOP High-Risk Medulloblastoma (SIOP-HRMB): An International Prospective Trial on High-Risk Medulloblastoma in Patients Older Than 3 Years",
+  "version": "v3.0 (22 Jun 2023)",
+  "file": "protocols/SIOP HRMB Protocol v3.0 22Jun2023_clean.pdf",
+  "kind": "protocol",
+  "family": "cns_tumours",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "siop-lgg-2004",
+  "short": "SIOP LGG 2004",
+  "title": "Cooperative Multicenter Study for Children and Adolescents with Low Grade Glioma (SIOP-LGG 2004)",
+  "version": "v1 (Apr 2004)",
+  "file": "protocols/SIOP-LGG-2004-Master-Protokoll-SIOP-Version-I-April-2004.pdf",
+  "kind": "protocol",
+  "family": "cns_tumours",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "siop-umbrella-part-a",
+  "short": "SIOP Umbrella (Part A)",
+  "title": "UMBRELLA Protocol SIOP-RTSG 2016: Integrated research and guidelines for standardized diagnostics and therapy – Part A: Evaluation of tissue, imaging and biomarkers to optimize risk stratification",
+  "version": "v3.2 (May 2022)",
+  "file": "protocols/SIOP Umbrella_PartA_v3.2_May2022_clean.pdf",
+  "kind": "protocol",
+  "family": "renal_tumours",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "siop-umbrella-part-b",
+  "short": "SIOP Umbrella (Part B)",
+  "title": "UMBRELLA Protocol SIOP-RTSG 2016: Integrated research and guidelines for standardized diagnostics and therapy – Part B: Treatment Guidelines",
+  "version": "v3.2 (May 2022)",
+  "file": "protocols/SIOP Umbrella_PartB_v3.2_May2022_clean.pdf",
+  "kind": "protocol",
+  "family": "renal_tumours",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "siope-atrt01",
+  "short": "SIOPE ATRT01",
+  "title": "SIOPE ATRT01: An international prospective umbrella trial for children with atypical teratoid/rhabdoid tumours (ATRT) including a randomized phase III study evaluating the non-inferiority of three courses of high-dose chemotherapy (HDCT) compared to focal radiotherapy as consolidation therapy",
+  "version": "v1.5",
+  "file": "protocols/02_a_SIOPE_ATRT01_Protocol_V1.5.pdf",
+  "kind": "protocol",
+  "family": "cns_tumours",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "tgm-2013-ns",
+  "short": "TGM 2013-NS",
+  "title": "Protocole TGM 2013 - NS : Etude multicentrique évaluant une stratégie thérapeutique adaptée au pronostic dans les tumeurs germinales malignes non séminomateuses extracrâniennes de l’enfant et de l’adolescent et du jeune adulte",
+  "version": "v4.0 (01 Oct 2021)",
+  "file": "protocols/2013-004039-60_PROTOCOLE_V4.0_20211001_Final_TGM2013-NS.PDF",
+  "kind": "protocol",
+  "family": "germ_cell_tumours",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "alltogether-thrombosis",
+  "short": "ALLTogether Thrombosis guidelines",
+  "title": "ALLTogether Clinical Study Protocol Guidelines: Clinical Guideline for Thrombosis (Guidelines on Thrombosis)",
+  "version": "v1.0 (05 Aug 2019)",
+  "file": "subprotocols/ALLTogether_Thrombosis _Guidelines_FINAL Version 1.0_05AUG19.pdf",
+  "kind": "subprotocol",
+  "family": "leukaemia",
+  "parentId": "alltogether1",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "alltogether-pancreatitis",
+  "short": "ALLTogether Pancreatitis guidelines",
+  "title": "ALLTogether Clinical Study Protocol Guidelines: Clinical Guideline for Pancreatitis (Guidelines on Asparaginase-associated pancreatitis)",
+  "version": "v1.0 (05 Aug 2019)",
+  "file": "subprotocols/ALLTogether_Pancreatitis_FINAL Version 1.0_05AUG19.pdf",
+  "kind": "subprotocol",
+  "family": "leukaemia",
+  "parentId": "alltogether1",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "alltogether-maintenance-therapy",
+  "short": "ALLTogether Maintenance therapy guidelines",
+  "title": "ALLTogether Clinical Study Protocol Guidelines: Guidelines for 6-mercaptopurine/methotrexate maintenance therapy",
+  "version": "v2.0 (May 2020)",
+  "file": "subprotocols/ALLTogether_Maintenance therapy Guidelines v.2.0 May 2020.pdf",
+  "kind": "subprotocol",
+  "family": "leukaemia",
+  "parentId": "alltogether1",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "alltogether-a2g-glucarpidase",
+  "short": "ALLTogether Glucarpidase (A2G) guidelines",
+  "title": "ALLTogether Clinical Study Protocol Guidelines: Glucarpidase guidelines (Treatment of Delayed MTX-Clearance with Voraxaze®, Glucarpidase)",
+  "version": "v1.1 (15 Oct 2020)",
+  "file": "subprotocols/ALLTogether_ A2G Glucarpidase guidelines_FINAL Version 1.1 15OCT2020.pdf",
+  "kind": "subprotocol",
+  "family": "leukaemia",
+  "parentId": "alltogether1",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ },
+ {
+  "id": "alltogether-ino",
+  "short": "ALLTogether1 InO sub-protocol",
+  "title": "A randomized study to evaluate the efficacy of inotuzumab ozogamicin (anti-CD22) in pediatric patients and adults (0 - 45 yrs) with newly diagnosed BCP-ALL treated according to the intermediate risk high group of the ALLTogether1 protocol",
+  "version": "v6.0 (07 Mar 2025)",
+  "file": "subprotocols/ALLTogether1 InO sub-protocol v.6.0 07Mar2025_CLEAN_signed.pdf",
+  "kind": "subprotocol",
+  "family": "leukaemia",
+  "parentId": "alltogether1",
+  "hospitals": [
+   "UZA",
+   "UZL",
+   "CHU",
+   "UCL",
+   "HUDERF",
+   "UZG"
+  ]
+ }
+]

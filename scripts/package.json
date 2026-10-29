@@ -1,0 +1,13 @@
+{
+	"name": "@bspho/scripts",
+	"private": true,
+	"type": "module",
+	"description": "Operational scripts: build packs from PDFs, sync with storage, evaluate.",
+	"dependencies": {
+		"@bspho/protocol": "workspace:*",
+		"mupdf": "^1.28.1"
+	},
+	"devDependencies": {
+		"xlsx": "^0.18.5"
+	}
+}

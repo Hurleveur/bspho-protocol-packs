@@ -1,0 +1,43 @@
+{
+	"name": "@bspho/web",
+	"version": "0.1.0",
+	"private": true,
+	"scripts": {
+		"dev": "next dev",
+		"build": "next build",
+		"start": "next start",
+		"prepare": "git config core.hooksPath .githooks || true",
+		"lint": "nk lint",
+		"format": "nk format",
+		"check": "nk check",
+		"type-check": "nk type-check"
+	},
+	"dependencies": {
+		"@bspho/protocol": "workspace:*",
+		"@ingram-tech/nk-themes": "^0.3.0",
+		"lucide-react": "^1.64.0",
+		"next": "16.4.3",
+		"react": "19.3.0",
+		"react-dom": "19.3.0",
+		"server-only": "^0.0.1",
+		"zod": "^4.6.7"
+	},
+	"devDependencies": {
+		"@ingram-tech/nk-dev": "^0.22.0",
+		"@tailwindcss/turbopack": "^4",
+		"@types/node": "^20",
+		"@types/react": "^19",
+		"@types/react-dom": "^19",
+		"tailwindcss": "^4",
+		"typescript": "^5"
+	},
+	"packageManager": "bun@1.4.4",
+	"ignoreScripts": [
+		"sharp",
+		"unrs-resolver"
+	],
+	"trustedDependencies": [
+		"sharp",
+		"unrs-resolver"
+	]
+}

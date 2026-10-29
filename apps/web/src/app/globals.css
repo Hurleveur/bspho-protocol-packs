@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+/* Clinical, calm, readable on a projector: warm paper, dark ink, one accent per meaning. */
+:root {
+	--paper: #f6f5f1;
+	--surface: #ffffff;
+	--ink: #1b1f24;
+	--muted: #646a73;
+	--faint: #6e747d; /* 4.5:1 on paper: page numbers and versions must survive a projector */
+	--line: #e3e1da;
+	--accent: #0d6e66; /* navigation, links */
+	--accent-soft: #e3f1ef;
+	--go: #1f7a3a; /* requirements to start */
+	--go-soft: #e8f4ec;
+	--flow: #8a4b08; /* re-stratification, forks */
+	--flow-soft: #fbf0e2;
+	--local: #6a3fb5; /* hospital local rules */
+	--local-soft: #f1ebfb;
+	--warn: #a1430f;
+	--warn-soft: #fdeee4;
+	--mark: #fde68a;
+	/* Header + sticky bars: where a jump lands (set by the consult sheet). */
+	--stick: 7rem;
+}
+
+@theme inline {
+	--color-paper: var(--paper);
+	--color-surface: var(--surface);
+	--color-ink: var(--ink);
+	--color-muted: var(--muted);
+	--color-faint: var(--faint);
+	--color-line: var(--line);
+	--color-accent: var(--accent);
+	--color-accent-soft: var(--accent-soft);
+	--color-go: var(--go);
+	--color-go-soft: var(--go-soft);
+	--color-flow: var(--flow);
+	--color-flow-soft: var(--flow-soft);
+	--color-local: var(--local);
+	--color-local-soft: var(--local-soft);
+	--color-warn: var(--warn);
+	--color-warn-soft: var(--warn-soft);
+	--color-mark: var(--mark);
+	--font-sans: var(--font-geist-sans);
+	--font-mono: var(--font-geist-mono);
+}
+
+body {
+	background: var(--paper);
+	color: var(--ink);
+	font-family: var(--font-sans), system-ui, sans-serif;
+	font-feature-settings: "ss01", "tnum";
+}
+
+/* Verbatim protocol text keeps its line breaks. */
+.verbatim {
+	white-space: pre-line;
+}

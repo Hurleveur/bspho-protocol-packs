@@ -1,0 +1,12 @@
+{
+	"$schema": "https://unpkg.com/knip@6/schema.json",
+	"ignoreDependencies": ["@ingram-tech/nk-dev"],
+	"rules": {
+		"exports": "off",
+		"types": "off",
+		"nsExports": "off",
+		"nsTypes": "off",
+		"enumMembers": "off",
+		"duplicates": "off"
+	}
+}

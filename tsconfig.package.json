@@ -1,0 +1,15 @@
+{
+	"$schema": "https://json.schemastore.org/tsconfig",
+	"extends": "@ingram-tech/nk-dev/tsconfig/base.json",
+	"compilerOptions": {
+		"lib": ["dom", "dom.iterable", "esnext"],
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"jsx": "react-jsx",
+		"noEmit": true,
+		"declaration": false,
+		"declarationMap": false,
+		"types": ["bun"]
+	},
+	"include": ["${configDir}/src/**/*.ts", "${configDir}/src/**/*.tsx"]
+}

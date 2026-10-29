@@ -1,0 +1,201 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Protocol Pack Evals</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap">
+<style>
+/* Layout: one reading column like a lab report: method first, then results per layer, then the loop. */
+:root {
+  --bg: #f5f7f8; --surface: #ffffff; --ink: #16212a; --muted: #5b6874; --line: #d7dee3; --line-soft: #e7ecef;
+  --accent: #0b5f8a; --accent-soft: #e3eef5; --good: #1d7a4c; --good-soft: #e6f3ec; --warn: #9a5b06; --warn-soft: #fbf1e1;
+  --bad: #a3361f; --bad-soft: #f8e7e2;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --cond: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f161c; --surface: #16212a; --ink: #e3eaef; --muted: #93a3b0; --line: #2b3a46; --line-soft: #22303a;
+    --accent: #6fb6dc; --accent-soft: #17303f; --good: #5cc492; --good-soft: #15302a; --warn: #e6a65a; --warn-soft: #33261a;
+    --bad: #ec8a73; --bad-soft: #3a211c; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f161c; --surface: #16212a; --ink: #e3eaef; --muted: #93a3b0; --line: #2b3a46; --line-soft: #22303a;
+  --accent: #6fb6dc; --accent-soft: #17303f; --good: #5cc492; --good-soft: #15302a; --warn: #e6a65a; --warn-soft: #33261a;
+  --bad: #ec8a73; --bad-soft: #3a211c; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15.5px; line-height: 1.55; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-block: 32px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--cond); text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: clamp(28px, 4.2vw, 38px); font-weight: 600; }
+h2 { font-size: 24px; font-weight: 600; }
+h3 { font-size: 17px; font-weight: 600; }
+p { margin: 0; max-width: 70ch; }
+code { font-family: var(--mono); font-size: 0.88em; }
+.lede { color: var(--muted); font-size: 17px; max-width: 74ch; }
+.muted { color: var(--muted); } .small { font-size: 13.5px; }
+.label { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+section { display: grid; gap: 16px; margin-top: 40px; padding-top: 36px; border-top: 1px solid var(--line); min-width: 0; }
+.stack { display: grid; gap: 12px; }
+.layers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 6px; background: var(--surface); margin-top: 14px; }
+.layer { padding: 14px 16px; border-left: 1px solid var(--line); display: grid; gap: 6px; align-content: start; min-width: 0; }
+.layer:first-child { border-left: 0; }
+.layer .n { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+.layer b { font-family: var(--cond); font-size: 18px; font-weight: 600; }
+.layer .big { font-family: var(--cond); font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 820px) { .layers { grid-template-columns: repeat(2, minmax(0, 1fr)); } .layer:nth-child(3) { border-left: 0; } .layer:nth-child(n+3) { border-top: 1px solid var(--line); } }
+@media (max-width: 440px) { .layers { grid-template-columns: 1fr; } .layer { border-left: 0; border-top: 1px solid var(--line); } .layer:first-child { border-top: 0; } }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line-soft); text-align: left; vertical-align: top; }
+th { font-family: var(--mono); font-weight: 500; font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); background: var(--bg); }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill { display: inline-block; font-family: var(--mono); font-size: 11.5px; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+.pill.good { background: var(--good-soft); color: var(--good); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.bar { display: inline-block; height: 8px; background: var(--accent); border-radius: 2px; vertical-align: middle; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+@media (max-width: 820px) { .two { grid-template-columns: 1fr; } }
+.card { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 14px 16px; display: grid; gap: 8px; min-width: 0; }
+blockquote { margin: 0; padding: 8px 12px; border-left: 2px solid var(--line); color: var(--muted); font-size: 14px; }
+ol.loop { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
+.pending { border: 1px dashed var(--line); border-radius: 6px; padding: 12px 14px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <header class="stack">
+    <span class="label">BSPHO hackathon · Ingram team · 29 Oct 2026</span>
+    <h1>How we test the protocol packs</h1>
+    <p class="lede">A wrong threshold shown to a doctor is the worst failure this product can have, and nobody should have to find extraction errors by hand. So every protocol build is checked four ways, from exact code checks to an independent AI judge looking at the real PDF page, and the organisers' own clinical questions are scored end to end. Every finding names the protocol, the page and the text.</p>
+    <div class="layers">
+      <div class="layer"><span class="n">Layer 1</span><b>Verifier tests</b><span class="small muted">Quotes and numbers must match the page</span><span class="big">6/6</span></div>
+      <div class="layer"><span class="n">Layer 2</span><b>Extraction checks</b><span class="small muted">17 failure classes (11 extraction, 6 treatment flow) over all 32 protocols</span><span class="big">12 s</span></div>
+      <div class="layer"><span class="n">Layer 3</span><b>Vision judge</b><span class="small muted">Gemini 3.1 Pro compares page image with our sheet. 124 sections judged</span><span class="big" id="judge-tile">10/10 precise</span></div>
+      <div class="layer"><span class="n">Layer 4</span><b>Golden questions</b><span class="small muted">Organisers' 7 scorable clinical questions</span><span class="big">89%</span></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>Layer 1: the verifier that guards every quote</h2>
+    <p>Every clinical line the app shows, and every citation the assistant makes, goes through one check before it is displayed. A quote counts as found on its page only if a contiguous passage matches it (90% similarity after normalising bullets, hyphenation and the many spellings of ×10⁹/L) <b>and every number in the quote appears in that passage with the same value</b>. Unit tests pin the cases that matter, using the real ALLTogether1 page 179.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Test</th><th>Example</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td>Wrong number rejected</td><td>"WBC should be &gt;3.0x109/L" against a page that says &gt;1.5</td><td><span class="pill good">rejected</span></td></tr>
+        <tr><td>Real quotes verified</td><td>"platelets &gt;50x109/L and rising"</td><td><span class="pill good">verified</span></td></tr>
+        <tr><td>Quote across bullets and line breaks</td><td>WBC ... or ANC ... and platelets, as one sentence</td><td><span class="pill good">verified</span></td></tr>
+        <tr><td>Elided quotes check every segment</td><td>"Before the start of the phase: ... platelets &gt;80" (page says 50)</td><td><span class="pill good">rejected</span></td></tr>
+        <tr><td>Section numbers are not thresholds</td><td>"0.3" must not match inside "section 10.3.8"</td><td><span class="pill good">rejected</span></td></tr>
+        <tr><td>Unit spellings normalise</td><td>x 10⁹/l, ×10⁹/L, x109/L, x 10 ⏎ 9/l</td><td><span class="pill good">equal</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>Layer 2: deterministic extraction checks</h2>
+    <p>Each failure class a person spots becomes a check that runs over every published spec in seconds. They are tuned for precision: fewer, true findings rather than noise. Each finding carries protocol, page, section and a snippet, so a fix can be targeted and the re-run shows the delta.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Class</th><th>What it catches</th><th class="n">Findings</th><th class="n">High</th></tr></thead>
+      <tbody>
+        <tr><td>list_item_glue</td><td>Bullet items split mid-item, OR/AND cut away from the items it joins</td><td class="n">95</td><td class="n">0</td></tr>
+        <tr><td>figure_overrun</td><td>Figure or table crop that runs on into ordinary prose</td><td class="n">68</td><td class="n">20</td></tr>
+        <tr><td>flattened_table</td><td>Numeric grid or short fragments shown as a sentence</td><td class="n">18</td><td class="n">1</td></tr>
+        <tr><td>truncated_title</td><td>Wrapped heading cut ("utcome and size"), title repeated as first line</td><td class="n">24</td><td class="n">13</td></tr>
+        <tr><td>interleaved_columns</td><td>Two-column layouts read line by line ("Cyclophosphamide Cyclophosphamide 1000 mg/m²")</td><td class="n">12</td><td class="n">12</td></tr>
+        <tr><td>technique_in_workup</td><td>Imaging technique paragraphs shown as diagnosis checklist items</td><td class="n">25</td><td class="n">0</td></tr>
+        <tr><td>runin_merged</td><td>Bold run-in heading glued to its paragraph</td><td class="n">34</td><td class="n">0</td></tr>
+        <tr><td>missing_start</td><td>Treatment step with no requirements to start found</td><td class="n">23</td><td class="n">0</td></tr>
+        <tr><td>relapse_in_diagnosis</td><td>Relapse or follow-up work-up filed under initial diagnosis</td><td class="n">13</td><td class="n">6</td></tr>
+        <tr><td>split_list</td><td>One list torn across diagnostic stages (SIOP Umbrella B p. 83)</td><td class="n">12</td><td class="n">10</td></tr>
+        <tr><td>stage_coverage</td><td>Diagnosis sections where nothing was sorted into a stage</td><td class="n">9</td><td class="n">0</td></tr>
+        <tr><td colspan="4"><b>Treatment flow checks</b></td></tr>
+        <tr><td>flow_unconnected</td><td>Treatment step with no edge in or out (noisy: includes guideline chapters)</td><td class="n">191</td><td class="n">0</td></tr>
+        <tr><td>missing_fork</td><td>Variant steps (Induction A..F, arms) chained instead of shown as alternatives</td><td class="n">10</td><td class="n">2</td></tr>
+        <tr><td>non_step_in_flow</td><td>Surgery chapters, appendices, biobanking drawn as treatment steps</td><td class="n">7</td><td class="n">7</td></tr>
+        <tr><td>fork_evidence_mismatch</td><td>A fork justified by timing text instead of the decision rule (MRD, response, risk group)</td><td class="n">6</td><td class="n">0</td></tr>
+        <tr><td>flow_inferred_share</td><td>Most of a protocol's flow inferred rather than quoted</td><td class="n">4</td><td class="n">3</td></tr>
+        <tr><td>risk_groups_content</td><td>Risk-group section that does not say how patients are assigned</td><td class="n">2</td><td class="n">2</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small muted">Counts from the latest run over all published specs. Each class is a work queue, high severity first; flow_unconnected is deliberately broad and mostly lists guideline chapters that are not treatment steps.</p>
+    <div class="two">
+      <div class="card">
+        <span class="label">Example · interleaved_columns · high</span>
+        <p>ALLTogether1 p. 258, a two-column drug table read row by row:</p>
+        <blockquote>TPMT-deficiency, the dose should be reduced to 5 mg/m². Cyclophosphamide Cyclophosphamide 1000 mg/m² over 30-60 min will be</blockquote>      </div>
+      <div class="card">
+        <span class="label">Example · split_list · high</span>
+        <p>SIOP Umbrella B p. 83, "All children with a suspected tumour recurrence should have:" with 11 items: 3 shown under step 1, the rest scattered, and it is a relapse work-up, not the initial diagnosis.</p>      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Layer 3: the vision judge</h2>
+    <p>Code checks only catch what we already know to look for. The judge looks for what we do not. For a sample of sections per protocol (diagnosis, requirements to start, supportive care, sections with figures, and pages the checks flagged), Gemini 3.1 Pro with high thinking receives the rendered PDF page as an image next to exactly what the consult sheet shows for that section: titles, stage, every line in order, which lines are tick boxes, tables and crops. It returns a structured verdict: fine, or a list of issues with a class, a severity and a quote from the page as evidence.</p>
+    <p class="muted">The judge is itself a model, so its findings are a queue for review, not ground truth. We report its precision by checking a sample of its findings against the page images by hand.</p>
+    <div class="scroll" id="judge-results"><table>
+      <thead><tr><th>Judged</th><th class="n">Sections</th><th class="n">Clean</th><th class="n">Issues</th><th class="n">High</th></tr></thead>
+      <tbody>
+        <tr><td>All 32 protocols, sampled sections</td><td class="n">124</td><td class="n">12</td><td class="n">252</td><td class="n">86</td></tr>
+      </tbody>
+    </table></div>
+    <div class="two">
+      <div class="stack">
+        <h3>Precision: 10 of 10</h3>
+        <p>The judge gets the rendered page, crops of the exact regions and the verified table cells, so it does not blame us for what the page itself does. Every finding in a hand-checked sample of 10 was real. Examples: FaR-RMS pp. 70-71 drug cells scrambled; LINES p. 67 split list and p. 70 table read as one row; CHIP-AML22 "Age adjusted" label promoted to a section; LCH-IV p. 41 duplicated fragments; ALCL p. 42 table split; EWOG-SAA p. 8 truncated title.</p>
+      </div>
+      <div class="stack">
+        <h3>What only the judge finds</h3>
+        <p>Three classes have no code check yet: explanatory prose shown as tick boxes (42), content missing from a section (33) and lines filed under the wrong section (19). They are the next checks to write, so they stop depending on a model. The rest of its findings overlap the code checks (list glue 43, figure overrun 22, interleaved columns 13, truncated titles 13, split lists 11), which is a useful cross-check that the checks are not missing whole classes.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Layer 4: the organisers' golden questions</h2>
+    <p>The UC1 materials include clinician questions with an oncologist's reference answer and page references. We run each through the path a doctor would use: the per-protocol assistant (Ctrl+J, whole protocol in context) for questions about one protocol, and cross-protocol Ask for questions that span protocols. Gemini 3.1 Pro breaks the oncologist's answer into atomic facts and judges each against our answer and the passages it cites. Q8 (a Dutch patient folder) has no reference answer and is not scored.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Question</th><th>Path</th><th>Mode</th><th class="n">Pages hit</th><th class="n">Facts</th><th class="n">Numbers in cited text</th><th class="n">Latency</th><th class="n">Score</th></tr></thead>
+      <tbody>
+        <tr><td>Q1 Conditions before dinutuximab</td><td>Ask (BEACON2 + HR-NBL2)</td><td><span class="pill good">answer</span></td><td class="n">5/5</td><td class="n">6/10</td><td class="n">29/29</td><td class="n">9.7 s</td><td class="n">90%</td></tr>
+        <tr><td>Q2 Staging, 3-year-old neuroblastoma</td><td>Assistant · HR-NBL2</td><td><span class="pill good">answer</span></td><td class="n">18/18</td><td class="n">5/8</td><td class="n">4/4</td><td class="n">8.4 s</td><td class="n">91%</td></tr>
+        <tr><td>Q3 FaR-RMS staging investigations</td><td>Assistant · FaR-RMS</td><td><span class="pill good">answer</span></td><td class="n">5/7</td><td class="n">5/9</td><td class="n">5/5</td><td class="n">7.1 s</td><td class="n">82%</td></tr>
+        <tr><td>Q4 150,000 WBC, acute management</td><td>Ask (CHIP-AML22 + ALLTogether1)</td><td><span class="pill good">answer</span></td><td class="n">8/8</td><td class="n">6/9</td><td class="n">21/23</td><td class="n">10.2 s</td><td class="n">92%</td></tr>
+        <tr><td>Q5 Adult antihypertensive</td><td>Ask</td><td><span class="pill good">refused</span></td><td class="n">n/a</td><td class="n">n/a</td><td class="n">n/a</td><td class="n">1.0 s</td><td class="n">100%</td></tr>
+        <tr><td>Q6 Child asthma step-up</td><td>Ask</td><td><span class="pill good">refused</span></td><td class="n">n/a</td><td class="n">n/a</td><td class="n">n/a</td><td class="n">2.1 s</td><td class="n">100%</td></tr>
+        <tr><td>Q7 Stroke-like event on ALLTogether1</td><td>Assistant · ALLTogether1 + subs</td><td><span class="pill good">answer</span></td><td class="n">4/8</td><td class="n">2/7</td><td class="n">9/9</td><td class="n">17.7 s</td><td class="n">70%</td></tr>
+        <tr><td><b>All 7</b></td><td></td><td><b>7/7</b></td><td class="n"><b>40/46</b></td><td class="n"><b>24/43</b></td><td class="n"><b>68/70</b></td><td></td><td class="n"><b>89%</b></td></tr>
+      </tbody>
+    </table></div>
+    <div class="two">
+      <div class="stack">
+        <h3>What the numbers say</h3>
+        <p>Safety holds: both out-of-scope questions are refused in about two seconds, and 68 of 70 numbers in the answers appear in the passages they cite (the two that do not are a WBC of 100,000 and a page number, both restated from the question). Coverage is the weak point: 24 of 43 reference facts. Most misses are facts our spec has but the answer leaves out: the non-haematological criteria for dinutuximab, "WBC of 50 or more means high risk" in Q4, and the thrombosis and CNS causes in Q7.</p>
+        <p>In progress: answers built from a checklist per question type (before starting a drug: blood counts, organ function, other conditions; acute management: immediate actions, risk group, next step; complication: causes, work-up, drug handling, reporting), a fast coverage check, and retrieval that pulls in a step's start requirements whenever a question names its drug.</p>
+      </div>
+      <div class="stack">
+        <h3>Where the answer key and the PDFs disagree</h3>
+        <p>The reference answers cite BEACON2 pp. 13 and 37 and ALLTogether1 v6.2. The PDFs we were given are BEACON2 v3.0a, where the criteria sit on pp. 16, 40 and 43, and ALLTogether1 v6.0. The scorer counts a page as hit within three pages or where the expected fact is stated, and lists this drift separately. Version drift in the organisers' own answer key is the problem our versioned updates exist for.</p>
+        <p class="small muted">Two scorer contradictions need a clinician, and we may be right on both: the key says HR-NBL2 gives no numerical thresholds before maintenance, while our answer quotes "ANC &gt; 0.5, platelets &gt; 25, haemoglobin &gt; 7.0 g/dL" from the protocol; and the key says FaR-RMS bone marrow sampling is only for suspected involvement, while our answer quotes "Bilateral bone marrow aspirate and trephine biopsy are recommended" (p. 68).</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The loop</h2>
+    <ol class="loop">
+      <li>A bug found by a person becomes a named check, with the case that triggered it as the first test.</li>
+      <li>The checks and the judge run over all 32 protocols and rank issues by class and severity.</li>
+      <li>Fix agents work in parallel, each on one class and one part of the pipeline, and must show counts on the same checks plus spot checks of the rendered page.</li>
+      <li>Every rebuild is gated: a protocol whose new spec loses treatment steps or diagnosis sections is retried, and otherwise keeps its previous spec. Model labelling is not fully deterministic, so this gate stops a bad run from reaching doctors.</li>
+      <li>The golden questions re-run after changes to the assistant or Ask, so improvements to recall cannot quietly cost safety (refusals, numbers in cited text).</li>
+    </ol>
+    <p class="small muted">Everything here runs from <code>scripts/eval/</code>: <code>checks.ts</code>, <code>judge.ts</code>, <code>run.ts</code> (report with deltas against the previous run) and <code>golden.ts</code>. Build-time model cost is not a constraint, so the judge and the pipeline use Gemini 3.1 Pro with high thinking.</p>
+  </section>
+</div>
+
+</body></html>
