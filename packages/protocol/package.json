@@ -11,10 +11,10 @@
 		"test": "bun test"
 	},
 	"dependencies": {
-		"@ai-sdk/google-vertex": "^5.0.126",
+		"@ai-sdk/google-vertex": "^5.0.142",
 		"@google-cloud/storage": "^8.4.0",
-		"ai": "^7.0.156",
-		"mupdf": "^1.28.1",
+		"ai": "^7.0.177",
+		"mupdf": "^1.28.6",
 		"zod": "^4.6.7"
 	}
 }
