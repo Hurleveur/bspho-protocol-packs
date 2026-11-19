@@ -99,7 +99,9 @@ function defaultRoot(): string {
 	return join(process.cwd(), "store");
 }
 
-const ROOT = resolve(process.env.STORE_DIR ?? defaultRoot());
+// The store is runtime data, never part of the build: keep Next's file tracer from
+// following it (it would otherwise trace, and ship, the whole project).
+const ROOT = resolve(/*turbopackIgnore: true*/ process.env.STORE_DIR ?? defaultRoot());
 
 // Production: Cloud Run disks are ephemeral, so the store mirrors a GCS bucket.
 // Everything is pulled once on first access; every write is pushed.
