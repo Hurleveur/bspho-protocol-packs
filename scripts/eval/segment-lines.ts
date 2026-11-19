@@ -34,6 +34,7 @@ export function bodyLines(pages: PdfPage[], from: number, to: number): Line[] {
 	const out: Line[] = [];
 	for (let pg = from; pg <= to; pg++) {
 		const p = pages[pg - 1];
+		if (!p) throw new Error(`page ${pg} is out of range (1-${pages.length})`);
 		for (const l of p.lines)
 			if (
 				!(
@@ -50,6 +51,10 @@ export function bodyLines(pages: PdfPage[], from: number, to: number): Line[] {
 
 if (import.meta.main) {
 	const [id, a, b] = process.argv.slice(2);
+	if (!id || !a)
+		throw new Error(
+			"usage: bun scripts/eval/segment-lines.ts <protocol> <from> [to]",
+		);
 	const pages = pagesOf(shaOf(id));
 	const lines = bodyLines(pages, Number(a), Number(b ?? a));
 	const x0 = Math.min(...lines.map((l) => l.bbox[0]));

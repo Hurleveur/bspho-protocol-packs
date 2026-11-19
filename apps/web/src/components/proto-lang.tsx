@@ -1,7 +1,8 @@
 "use client";
 
 import type { Anchor, Lang, Node } from "@bspho/protocol/spec";
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext } from "react";
+import { useLoadedState } from "@/lib/use-loaded-state";
 
 /** How the sheet shows protocol text: a short summary in one language, or the verbatim original. */
 export type ProtoLang = Lang | "orig";
@@ -25,19 +26,27 @@ const LangContext = createContext<LangApi>({ lang: DEFAULT, setLang: () => {} })
 
 /** Per-browser setting (localStorage); renders the default until mounted so SSR and hydration agree. */
 export function ProtoLangProvider({ children }: { children: React.ReactNode }) {
-	const [lang, set] = useState<ProtoLang>(DEFAULT);
-	useEffect(() => {
-		try {
-			const v = localStorage.getItem(KEY);
-			if (v && PROTO_LANGS.some((l) => l.id === v)) set(v as ProtoLang);
-		} catch {}
-	}, []);
-	const setLang = useCallback((l: ProtoLang) => {
-		set(l);
-		try {
-			localStorage.setItem(KEY, l);
-		} catch {}
-	}, []);
+	const [lang, set] = useLoadedState<ProtoLang>(
+		KEY,
+		() => {
+			try {
+				const v = localStorage.getItem(KEY);
+				return PROTO_LANGS.find((l) => l.id === v)?.id;
+			} catch {
+				return undefined;
+			}
+		},
+		DEFAULT,
+	);
+	const setLang = useCallback(
+		(l: ProtoLang) => {
+			set(l);
+			try {
+				localStorage.setItem(KEY, l);
+			} catch {}
+		},
+		[set],
+	);
 	return <LangContext value={{ lang, setLang }}>{children}</LangContext>;
 }
 

@@ -29,7 +29,10 @@ export function armsOf(
 				label: a.title,
 				short: a.label,
 				phase: true,
-				steps: a.steps.filter((id) => on.has(id)).map((id) => byId.get(id)!),
+				steps: a.steps.flatMap((id) => {
+					const s = on.has(id) ? byId.get(id) : undefined;
+					return s ? [s] : [];
+				}),
 			}))
 			.filter((a) => a.steps.length);
 	}
@@ -70,9 +73,9 @@ const GENERIC =
 	/^(?:treatment|therapy)(?:\s+(?:details|overview|elements|plan|schedule))?$|^(?:overview|therapy elements|treatment and therapy|treatment overview(?: and details)?)$/i;
 
 /** "Post-induction IR-High Treatment" → "IR-High"; "Experimental Arm: A Phase II…" → "Experimental Arm". */
-export function shortLabel(label: string): string {
-	const s = label
-		.split(/\s+[–—-]\s+|:\s/)[0]
+function shortLabel(label: string): string {
+	// split always yields at least one piece.
+	const s = (label.split(/\s+[–—-]\s+|:\s/)[0] ?? "")
 		.replace(/^post-induction\s+/i, "")
 		.replace(/\s+(treatment|therapy)(\s+overview)?$/i, "")
 		.replace(/\s+treatment(?=\s+for\b)/i, "")
@@ -81,28 +84,31 @@ export function shortLabel(label: string): string {
 	return s || label;
 }
 
-export const armLabel = (title: string) =>
+const armLabel = (title: string) =>
 	title.replace(/^[\d.]+\s*/, "").trim() || "Treatment";
 
 /** "13.9.2 Standard risk consolidation 1" → ["13.9.2", "Standard risk consolidation 1"]. */
 export function splitNumber(title: string): [string, string] {
 	const m = /^((?:\d+\.)*\d+\.?|[IVX]+\.)\s+(.+)$/.exec(title.trim());
-	return m ? [m[1].replace(/\.$/, ""), m[2]] : ["", title.trim()];
+	if (!m) return ["", title.trim()];
+	// Both groups are required by the pattern.
+	const [, num = "", rest = ""] = m;
+	return [num.replace(/\.$/, ""), rest];
 }
 
 const FLOW = new Set<Edge["kind"]>(["next", "alternative", "restratify_to"]);
 const DECISION = new Set<Node["kind"]>(["response_assessment", "restratification"]);
 
-export const NODE_W = 150;
-export const NODE_H = 64;
-export const DEC_H = 56;
-export const CHIP_W = 150;
-export const CHIP_H = 36;
-export const GAP_X = 42;
-export const GAP_Y = 12;
-export const PAD = 10;
+const NODE_W = 150;
+const NODE_H = 64;
+const DEC_H = 56;
+const CHIP_W = 150;
+const CHIP_H = 36;
+const GAP_X = 42;
+const GAP_Y = 12;
+const PAD = 10;
 
-export interface MapNode {
+interface MapNode {
 	id: string;
 	node: Node;
 	decision: boolean;
@@ -113,7 +119,7 @@ export interface MapNode {
 	rank: number;
 }
 
-export interface MapExit {
+interface MapExit {
 	key: string;
 	edge: Edge;
 	/** Source node on the map; null when the edge leaves from the arm node itself. */
@@ -130,7 +136,7 @@ export interface MapExit {
 	h: number;
 }
 
-export interface MapEdge {
+interface MapEdge {
 	key: string;
 	edge: Edge;
 	d: string;
@@ -322,17 +328,19 @@ export function layoutArm(
 			// Siblings wanting the same centre are centred around it as a group.
 			let bottom = -Infinity;
 			for (let k = 0; k < col.length;) {
+				const first = col[k];
+				if (!first) break;
 				let j = k;
-				while (j + 1 < col.length && col[j + 1].want === col[k].want) j++;
+				while (j + 1 < col.length && col[j + 1]?.want === first.want) j++;
 				const group = col.slice(k, j + 1);
 				const h =
 					group.reduce((s, g) => s + g.i.h, 0) + GAP_Y * (group.length - 1);
 				let y =
-					col[k].want === null
+					first.want === null
 						? Number.isFinite(bottom)
 							? bottom + GAP_Y
 							: 0
-						: (col[k].want ?? 0) - h / 2;
+						: (first.want ?? 0) - h / 2;
 				if (Number.isFinite(bottom)) y = Math.max(y, bottom + GAP_Y);
 				for (const g of group) {
 					g.i.set(y);

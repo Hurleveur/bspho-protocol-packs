@@ -1,7 +1,7 @@
 "use client";
 
 import type { ProtocolSpec } from "@bspho/protocol/spec";
-import { History, ListChecks, Search, X } from "lucide-react";
+import { HistoryIcon, ListChecksIcon, SearchIcon, XIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fold, type Hit, ProtocolIndex } from "@/lib/search";
 import type { Recent } from "./jump-history";
@@ -89,7 +89,7 @@ export function SearchPalette({
 				onMouseDown={(e) => e.stopPropagation()}
 			>
 				<div className="flex items-center gap-3 border-b border-line px-4">
-					<Search size={18} className="text-muted" />
+					<SearchIcon size={18} className="text-muted" />
 					<input
 						ref={input}
 						value={q}
@@ -126,7 +126,7 @@ export function SearchPalette({
 							title="Clear search"
 							className="rounded p-1 text-muted hover:bg-paper hover:text-ink"
 						>
-							<X size={16} />
+							<XIcon size={16} />
 						</button>
 					)}
 					<kbd className="rounded border border-line px-1.5 font-mono text-xs text-muted">
@@ -137,7 +137,7 @@ export function SearchPalette({
 					{showRecents && (
 						<div className="border-b border-line py-1">
 							<p className="flex items-center gap-1.5 px-4 pt-1.5 pb-1 text-[13px] font-medium text-muted">
-								<History size={14} aria-hidden /> Recent places
+								<HistoryIcon size={14} aria-hidden /> Recent places
 							</p>
 							{recents.map((r, i) => (
 								<button
@@ -191,7 +191,7 @@ export function SearchPalette({
 							className="block w-full border-b border-line bg-go-soft px-4 py-3 text-left hover:bg-go-soft/70"
 						>
 							<p className="flex items-center gap-2 text-sm font-semibold text-go">
-								<ListChecks size={16} />{" "}
+								<ListChecksIcon size={16} />{" "}
 								{card.step
 									? `Requirements to start: ${titleOf(card.step, lang)}`
 									: titleOf(card.req, lang)}
@@ -218,6 +218,7 @@ export function SearchPalette({
 					<div className="py-1">
 						{groups.map((g) => {
 							const head = g[0];
+							if (!head) return null;
 							return (
 								<div key={head.nodeId} className="py-1">
 									<p className="truncate px-4 pt-1 text-[13px] text-muted">
@@ -270,7 +271,7 @@ function Snippet({ text, terms }: { text: string; terms: string[] }) {
 	let folded = "";
 	const src: number[] = [];
 	for (let i = 0; i < flat.length; i++) {
-		const f = fold(flat[i]);
+		const f = fold(flat.charAt(i));
 		folded += f;
 		for (let k = 0; k < f.length; k++) src.push(i);
 	}
@@ -284,8 +285,11 @@ function Snippet({ text, terms }: { text: string; terms: string[] }) {
 			t.length <= 4
 				? new RegExp(`(?<![a-z0-9])${esc}(?![a-z0-9])`, "g")
 				: new RegExp(esc, "g");
-		for (const m of folded.matchAll(re))
-			found.push([src[m.index], src[m.index + m[0].length - 1] + 1]);
+		for (const m of folded.matchAll(re)) {
+			const from = src[m.index];
+			const to = src[m.index + m[0].length - 1];
+			if (from !== undefined && to !== undefined) found.push([from, to + 1]);
+		}
 	}
 	found.sort((a, b) => a[0] - b[0]);
 	const start = Math.max(0, (found[0]?.[0] ?? 0) - 60);

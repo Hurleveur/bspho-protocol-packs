@@ -2,23 +2,22 @@
 
 import type { Anchor, Edge, Finding, Node, NodeKind } from "@bspho/protocol/spec";
 import {
-	ArrowRight,
-	Pill,
-	ClipboardCheck,
-	CalendarDays,
-	Building2,
-	Check,
-	ChevronDown,
-	ChevronRight,
-	CircleCheck,
-	FileText,
-	Flag,
-	GitFork,
-	Search,
-	Shuffle,
-	Sparkles,
-	StickyNote,
-	X,
+	ArrowRightIcon,
+	PillIcon,
+	ClipboardCheckIcon,
+	CalendarDaysIcon,
+	Building2Icon,
+	CheckIcon,
+	ChevronDownIcon,
+	ChevronRightIcon,
+	CircleCheckIcon,
+	FileTextIcon,
+	GitForkIcon,
+	SearchIcon,
+	ShuffleIcon,
+	SparklesIcon,
+	StickyNoteIcon,
+	XIcon,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -33,9 +32,10 @@ import { flushSync } from "react-dom";
 import type { LineNote } from "@/lib/case";
 import type { PackData } from "@/lib/data";
 import { type Arm, armsOf, splitNumber } from "@/lib/flow";
+import { useLoadedState } from "@/lib/use-loaded-state";
 import { formatDate, formatVersion } from "@/lib/format";
 import { armName, type RiskPath, riskPaths } from "@/lib/path";
-import { classify, DIAG_GROUPS, TopicIcon } from "./classify";
+import { classify, TopicIcon } from "./classify";
 import { AGENT_GO, AGENT_OPEN, AgentDrawer, type AgentGoDetail } from "./agent-drawer";
 import { CaseBar, CaseDialogs, CaseHeaderButtons } from "./case/case-bar";
 import { CaseStepPanel } from "./case/step-panel";
@@ -136,8 +136,9 @@ function useSheet(spec: Spec) {
 				)
 				.map((e) => (e.from === d.id ? e.to : e.from))
 				.sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
-			if (linked.length)
-				before.set(linked[0], [...(before.get(linked[0]) ?? []), d]);
+			const first = linked[0];
+			if (first !== undefined)
+				before.set(first, [...(before.get(first) ?? []), d]);
 			else looseDecisions.push(d);
 		}
 		const care = top(["supportive_care", "toxicity"]);
@@ -190,13 +191,17 @@ export function Pack({ data }: { data: PackData }) {
 		label?: string;
 	} | null>(null);
 	// Source pane width in px, dragged from its left edge; null = the default (36vw, at most 680px).
-	const [paneW, setPaneW] = useState<number | null>(null);
-	useEffect(() => {
-		try {
-			const w = Number(localStorage.getItem("bspho:paneW"));
-			if (w > 0) setPaneW(w);
-		} catch {}
-	}, []);
+	const [paneW, setPaneW] = useLoadedState<number | null>(
+		"bspho:paneW",
+		() => {
+			try {
+				const w = Number(localStorage.getItem("bspho:paneW"));
+				if (w > 0) return w;
+			} catch {}
+			return undefined;
+		},
+		null,
+	);
 	const dragPane = (e: React.PointerEvent) => {
 		e.preventDefault();
 		const move = (ev: PointerEvent) =>
@@ -221,6 +226,23 @@ export function Pack({ data }: { data: PackData }) {
 		window.addEventListener("pointermove", move);
 		window.addEventListener("pointerup", up);
 	};
+	// Keyboard resize: left widens, right narrows, saved like a drag.
+	const nudgePane = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+		const step = e.key === "ArrowLeft" ? 40 : e.key === "ArrowRight" ? -40 : 0;
+		if (!step) return;
+		e.preventDefault();
+		const cur =
+			paneW ??
+			e.currentTarget.parentElement?.getBoundingClientRect().width ??
+			480;
+		const w = Math.round(
+			Math.min(Math.max(cur + step, 360), window.innerWidth * 0.75),
+		);
+		setPaneW(w);
+		try {
+			localStorage.setItem("bspho:paneW", String(w));
+		} catch {}
+	};
 	const findings = useMemo(
 		() => [...(spec.findings ?? []), ...data.crossFindings],
 		[spec, data.crossFindings],
@@ -234,8 +256,10 @@ export function Pack({ data }: { data: PackData }) {
 	}, [findings]);
 	const [pinned, setPinned] = useState<string | null>(null);
 	const [searchOpen, setSearchOpen] = useState(false);
-	const [spy, setSpy] = useState<string>("");
+	const [spy, setSpy] = useState("");
 	const [printing, setPrinting] = useState(false);
+	// Stamped when printing starts, for the printed header.
+	const [printedOn, setPrintedOn] = useState("");
 	const [openSteps, setOpenSteps] = useState<Set<string>>(
 		() => new Set(sheet.steps[0] ? [sheet.steps[0].id] : []),
 	);
@@ -246,16 +270,19 @@ export function Pack({ data }: { data: PackData }) {
 
 	// Ticks: this tab only, keyed by protocol version. Never sent anywhere; no patient data.
 	const storeKey = `checks:${entry.id}:${sha}`;
-	const [checks, setChecks] = useState<Set<string>>(new Set());
-	useEffect(() => {
-		try {
-			setChecks(
-				new Set(
+	const [checks, setChecks] = useLoadedState<Set<string>>(
+		storeKey,
+		() => {
+			try {
+				return new Set(
 					JSON.parse(sessionStorage.getItem(storeKey) ?? "[]") as string[],
-				),
-			);
-		} catch {}
-	}, [storeKey]);
+				);
+			} catch {
+				return undefined;
+			}
+		},
+		() => new Set(),
+	);
 	const saveChecks = (next: Set<string>) => {
 		setChecks(next);
 		try {
@@ -275,17 +302,20 @@ export function Pack({ data }: { data: PackData }) {
 	// may hold patient data, so it never goes into the case code or any request; it leaves only in
 	// the EHR text the clinician copies.
 	const notesKey = `notes:${entry.id}:${sha}`;
-	const [notes, setNotes] = useState<Record<string, LineNote>>({});
-	useEffect(() => {
-		try {
-			setNotes(
-				JSON.parse(sessionStorage.getItem(notesKey) ?? "{}") as Record<
+	const [notes, setNotes] = useLoadedState<Record<string, LineNote>>(
+		notesKey,
+		() => {
+			try {
+				return JSON.parse(sessionStorage.getItem(notesKey) ?? "{}") as Record<
 					string,
 					LineNote
-				>,
-			);
-		} catch {}
-	}, [notesKey]);
+				>;
+			} catch {
+				return undefined;
+			}
+		},
+		{},
+	);
 	const saveNotes = (next: Record<string, LineNote>) => {
 		setNotes(next);
 		try {
@@ -329,7 +359,7 @@ export function Pack({ data }: { data: PackData }) {
 			} catch {}
 		}
 		hadCase.current = hasCase;
-	}, [hasCase, notesKey]);
+	}, [hasCase, notesKey, setNotes]);
 
 	// Risk-group path (?g=): one group's steps on the bar and the map, other arms folded.
 	const arms = useMemo(
@@ -341,11 +371,14 @@ export function Pack({ data }: { data: PackData }) {
 		[sheet.steps, byId, spec.edges, spec.treatment],
 	);
 	// undefined = not chosen (follow the case), null = "All groups".
-	const [pick, setPick] = useState<string | null | undefined>(undefined);
-	useEffect(() => {
-		const g = new URL(window.location.href).searchParams.get("g");
-		if (g && paths.some((p) => p.id === g)) setPick(g);
-	}, [paths]);
+	const [pick, setPick] = useLoadedState<string | null | undefined>(
+		paths.map((p) => p.id).join("|"),
+		() => {
+			const g = new URL(window.location.href).searchParams.get("g");
+			return g && paths.some((p) => p.id === g) ? g : undefined;
+		},
+		undefined,
+	);
 	const caseArm = caseCur
 		? arms.find((a) => a.steps.some((s) => s.id === caseCur))?.key
 		: kase.state?.arm;
@@ -392,9 +425,14 @@ export function Pack({ data }: { data: PackData }) {
 				.map((c) => c.id),
 		].some((x) => rules.has(x));
 	// The case's current step opens on its own.
+	const [openedFor, setOpenedFor] = useState<string>();
+	if (caseCur !== openedFor) {
+		setOpenedFor(caseCur);
+		if (caseCur)
+			setOpenSteps((o) => (o.has(caseCur) ? o : new Set([...o, caseCur])));
+	}
 	useEffect(() => {
 		if (!caseCur) return;
-		setOpenSteps((o) => (o.has(caseCur) ? o : new Set([...o, caseCur])));
 		const t = setTimeout(() => {
 			const el = document.getElementById(`n-${caseCur}`);
 			if (el) openDetails(el);
@@ -678,7 +716,11 @@ export function Pack({ data }: { data: PackData }) {
 	useEffect(() => {
 		// Paper gets the sheet as it is on screen: what is open prints, what is folded stays folded.
 		// Expanding everything turned a long protocol into a print job of hundreds of pages.
-		const before = () => flushSync(() => setPrinting(true));
+		const before = () =>
+			flushSync(() => {
+				setPrinting(true);
+				setPrintedOn(new Date().toISOString().slice(0, 10));
+			});
 		const after = () => setPrinting(false);
 		window.addEventListener("beforeprint", before);
 		window.addEventListener("afterprint", after);
@@ -787,7 +829,7 @@ export function Pack({ data }: { data: PackData }) {
 					onClick={() => setSearchOpen(true)}
 					className="ml-auto flex w-72 min-w-40 shrink items-center gap-2 rounded-md border border-line bg-paper px-3 py-2 text-left text-sm whitespace-nowrap text-muted transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-accent"
 				>
-					<Search size={16} className="shrink-0" />
+					<SearchIcon size={16} className="shrink-0" />
 					<span className="truncate">Search</span>
 					<kbd className="ml-auto rounded border border-line bg-surface px-1.5 font-mono text-xs">
 						Ctrl K
@@ -799,7 +841,7 @@ export function Pack({ data }: { data: PackData }) {
 					title="Ask the AI assistant about this protocol (Ctrl J)"
 					className="flex shrink-0 items-center gap-1.5 rounded-md border border-accent/40 bg-accent-soft px-3 py-2 text-sm font-medium whitespace-nowrap text-accent transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-accent"
 				>
-					<Sparkles size={16} aria-hidden /> Ask AI
+					<SparklesIcon size={16} aria-hidden /> Ask AI
 				</button>
 				<CaseHeaderButtons kase={kase} onPrint={() => window.print()} />
 			</header>
@@ -902,8 +944,7 @@ export function Pack({ data }: { data: PackData }) {
 							<p className="mt-1 text-xs">
 								Verbatim protocol text; each line carries its page in
 								the protocol. Check the protocol before acting. Printed{" "}
-								{new Date().toISOString().slice(0, 10)}. No patient
-								data.
+								{printedOn}. No patient data.
 							</p>
 						</div>
 
@@ -928,7 +969,7 @@ export function Pack({ data }: { data: PackData }) {
 										onClick={() => setPinned(null)}
 										className="rounded p-1 text-muted hover:bg-paper hover:text-ink"
 									>
-										<X size={18} />
+										<XIcon size={18} />
 									</button>
 								</div>
 								<NodeBody
@@ -1037,7 +1078,8 @@ export function Pack({ data }: { data: PackData }) {
 										const newPhase =
 											phase?.kind === "phase" &&
 											(i === 0 ||
-												sheet.steps[i - 1].parent !== phase.id);
+												sheet.steps[i - 1]?.parent !==
+													phase.id);
 										return (
 											<div key={s.id}>
 												{newPhase && (
@@ -1088,7 +1130,7 @@ export function Pack({ data }: { data: PackData }) {
 											className="group/off mb-4 rounded-lg border border-dashed border-line"
 										>
 											<summary className="flex cursor-pointer list-none items-baseline gap-2 px-4 py-2.5 text-sm text-muted hover:text-ink">
-												<ChevronRight
+												<ChevronRightIcon
 													size={14}
 													aria-hidden
 													className="shrink-0 self-center transition-transform group-open/off:rotate-90"
@@ -1218,22 +1260,22 @@ export function Pack({ data }: { data: PackData }) {
 					className="no-print fixed top-16 right-0 bottom-0 z-20 flex w-(--pane) flex-col border-l border-line bg-line/60 shadow-[-8px_0_24px_-12px_rgb(0_0_0/0.15)]"
 				>
 					{/* Drag the left edge to widen the page (double-click resets). */}
-					<div
-						role="separator"
-						aria-orientation="vertical"
-						aria-label="Resize the source page"
+					<button
+						type="button"
+						aria-label="Resize the source page (arrow keys)"
 						title="Drag to resize"
 						onPointerDown={dragPane}
+						onKeyDown={nudgePane}
 						onDoubleClick={() => {
 							setPaneW(null);
 							try {
 								localStorage.removeItem("bspho:paneW");
 							} catch {}
 						}}
-						className="absolute top-0 bottom-0 -left-1.5 z-10 w-3 cursor-col-resize after:absolute after:inset-y-0 after:left-1.5 after:w-px after:bg-transparent hover:after:bg-accent"
+						className="absolute top-0 bottom-0 -left-1.5 z-10 w-3 cursor-col-resize after:absolute after:inset-y-0 after:left-1.5 after:w-px after:bg-transparent hover:after:bg-accent focus-visible:after:bg-accent"
 					/>
 					<div className="flex items-center gap-2 border-b border-line bg-surface px-4 py-2 text-sm">
-						<FileText size={16} className="text-muted" />
+						<FileTextIcon size={16} className="text-muted" />
 						<span className="font-medium">
 							{pane.label ??
 								`${entry.short} ${formatVersion(spec.doc.version)}`}
@@ -1249,7 +1291,7 @@ export function Pack({ data }: { data: PackData }) {
 								}
 								className="rounded p-1 hover:bg-paper disabled:opacity-30"
 							>
-								<ChevronRight size={18} className="rotate-180" />
+								<ChevronRightIcon size={18} className="rotate-180" />
 							</button>
 							<span className="w-16 text-center font-mono text-[13px] text-muted tabular-nums">
 								{pane.page}
@@ -1264,7 +1306,7 @@ export function Pack({ data }: { data: PackData }) {
 								}
 								className="rounded p-1 hover:bg-paper disabled:opacity-30"
 							>
-								<ChevronRight size={18} />
+								<ChevronRightIcon size={18} />
 							</button>
 							<button
 								type="button"
@@ -1272,7 +1314,7 @@ export function Pack({ data }: { data: PackData }) {
 								onClick={() => setPane(null)}
 								className="ml-1 rounded p-1 hover:bg-paper"
 							>
-								<X size={18} />
+								<XIcon size={18} />
 							</button>
 						</div>
 					</div>
@@ -1491,7 +1533,6 @@ function NodeBody({
 						depth === 0 &&
 						node.blocks.reduce((s, b) => s + b.text.length, 0) > 700
 					}
-					ctx={ctx}
 				>
 					<Lines node={node} ctx={ctx} />
 				</Preview>
@@ -1527,7 +1568,6 @@ function NodeBody({
 								textOf(c, ctx.kids) > 700 &&
 								!hasFigures(c, ctx.kids)
 							}
-							ctx={ctx}
 						>
 							{depth < 6 ? (
 								<NodeBody
@@ -1548,16 +1588,8 @@ function NodeBody({
 	);
 }
 
-/** Long prose shows its first few lines; "Show all" opens the rest. Print always shows everything. */
-function Preview({
-	long,
-	ctx,
-	children,
-}: {
-	long: boolean;
-	ctx: Ctx;
-	children: React.ReactNode;
-}) {
+/** Long prose shows its first few lines; "Show all" opens the rest. */
+function Preview({ long, children }: { long: boolean; children: React.ReactNode }) {
 	const [open, setOpen] = useState(false);
 	if (!long || open) return <>{children}</>;
 	return (
@@ -1570,7 +1602,7 @@ function Preview({
 				onClick={() => setOpen(true)}
 				className="no-print mt-1 ml-3 flex items-center gap-1 text-[15px] font-medium text-accent hover:underline"
 			>
-				<ChevronDown size={16} aria-hidden /> Show all
+				<ChevronDownIcon size={16} aria-hidden /> Show all
 			</button>
 		</div>
 	);
@@ -1617,7 +1649,7 @@ function PhaseOverviews({
 			{full.length > 0 && (
 				<details className="group/ov mb-8 rounded-lg border border-line bg-surface">
 					<summary className="flex cursor-pointer list-none items-baseline gap-2 px-4 py-2.5 text-sm text-ink hover:text-accent focus-visible:outline-2 focus-visible:outline-accent">
-						<ChevronRight
+						<ChevronRightIcon
 							size={14}
 							aria-hidden
 							className="shrink-0 self-center transition-transform group-open/ov:rotate-90 motion-reduce:transition-none"
@@ -1675,7 +1707,7 @@ function PhaseHeading({
 			{hasText && (
 				<details className="group mt-1" open={hasFigure}>
 					<summary className="cursor-pointer list-none text-sm text-accent hover:underline">
-						<ChevronRight
+						<ChevronRightIcon
 							size={14}
 							className="mr-1 inline transition-transform group-open:rotate-90"
 						/>
@@ -1706,13 +1738,10 @@ function Decision({
 			className="mb-6 ml-10 scroll-mt-(--stick) rounded-lg border border-flow/30 bg-flow-soft/60 p-4"
 		>
 			<h3 className="mb-1 flex items-center gap-2 text-lg font-semibold text-flow">
-				<GitFork size={18} aria-hidden /> <Title node={node} />
+				<GitForkIcon size={18} aria-hidden /> <Title node={node} />
 			</h3>
 			<Rules rules={ctx.rules.get(node.id)} hospital={ctx.hospital.name} />
-			<Preview
-				long={textOf(node, ctx.kids) > 700 && !hasFigures(node, ctx.kids)}
-				ctx={ctx}
-			>
+			<Preview long={textOf(node, ctx.kids) > 700 && !hasFigures(node, ctx.kids)}>
 				<NodeBody node={node} ctx={ctx} depth={1} placed={placed} />
 			</Preview>
 		</div>
@@ -1816,7 +1845,9 @@ const stagesFor = (family: string | undefined) =>
 const LATER = new Set<string>(["relapse", "follow_up"]);
 const stepName = (key: string | undefined) => {
 	const i = STAGES.findIndex((s) => s.key === key);
-	return i < 0 ? "Other text" : LATER.has(key!) ? STAGES[i].label : `step ${i + 1}`;
+	const stage = STAGES[i];
+	if (!stage) return "Other text";
+	return LATER.has(stage.key) ? stage.label : `step ${i + 1}`;
 };
 
 /** A list = an intro line ending ":" and the item lines after it, inside one section. */
@@ -2224,12 +2255,12 @@ function Step({
 	const chipItems: Item[] = [
 		...checkable,
 		...reqs.flatMap((r) =>
-			(r.figures ?? []).flatMap((f) =>
-				f.caption
-					? f.caption.text.split("\n").map((line) => ({
-							a: { ...f.caption!, text: line },
+			(r.figures ?? []).flatMap(({ caption }) =>
+				caption
+					? caption.text.split("\n").map((line) => ({
+							a: { ...caption, text: line },
 							nodeId: r.id,
-							target: f.caption,
+							target: caption,
 						}))
 					: [],
 			),
@@ -2247,7 +2278,7 @@ function Step({
 				className={`absolute top-3 left-0 flex size-7 items-center justify-center rounded-full border-2 text-[13px] font-semibold tabular-nums ${caseStatus === "done" ? "border-go bg-go text-white" : caseStatus === "current" ? "border-accent bg-accent text-white ring-4 ring-accent/25" : all ? "border-go bg-go text-white" : open ? "border-accent bg-accent text-white" : "border-line bg-surface text-muted"}`}
 			>
 				{caseStatus === "done" || (all && !caseStatus) ? (
-					<Check size={15} strokeWidth={3} />
+					<CheckIcon size={15} strokeWidth={3} />
 				) : (
 					index + 1
 				)}
@@ -2269,7 +2300,7 @@ function Step({
 						</span>
 						{!open && (
 							<span className="mt-1.5 flex flex-wrap items-center gap-1.5">
-								<Chips items={chipItems} ctx={ctx} passive />
+								<Chips items={chipItems} passive />
 								{checkable.length ? (
 									<span
 										className={`text-sm tabular-nums ${all ? "font-medium text-go" : "text-muted"}`}
@@ -2280,7 +2311,7 @@ function Step({
 							</span>
 						)}
 					</span>
-					<ChevronDown
+					<ChevronDownIcon
 						size={20}
 						aria-hidden
 						className={`mt-1 shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`}
@@ -2300,11 +2331,11 @@ function Step({
 						{reqs.length ? (
 							<div className="rounded-lg border border-go/40 bg-go-soft p-4">
 								<p className="mb-2 flex items-center gap-2 text-base font-semibold text-go">
-									<CircleCheck size={18} aria-hidden /> Requirements
-									to start
+									<CircleCheckIcon size={18} aria-hidden />{" "}
+									Requirements to start
 								</p>
 								<div className="no-print mb-2">
-									<Chips items={chipItems} ctx={ctx} />
+									<Chips items={chipItems} />
 								</div>
 								<Checklist items={items} ctx={ctx} tone="go" />
 								{reqs.map((r) => (
@@ -2354,7 +2385,7 @@ function Step({
 						{hasText && (
 							<details className="group mt-3">
 								<summary className="cursor-pointer list-none text-[15px] text-accent hover:underline">
-									<ChevronRight
+									<ChevronRightIcon
 										size={15}
 										className="mr-1 inline transition-transform group-open:rotate-90"
 									/>
@@ -2378,15 +2409,7 @@ function Step({
 }
 
 /** One chip per kind of requirement, from the verbatim lines; clicking one points at its line. */
-function Chips({
-	items,
-	ctx,
-	passive,
-}: {
-	items: Item[];
-	ctx: Ctx;
-	passive?: boolean;
-}) {
+function Chips({ items, passive }: { items: Item[]; passive?: boolean }) {
 	const seen = new Map<
 		string,
 		{ t: NonNullable<ReturnType<typeof classify>>; a: Anchor }
@@ -2448,10 +2471,10 @@ function EdgeLine({ edge, ctx }: { edge: Edge; ctx: Ctx }) {
 	const decision = edge.kind === "alternative" || edge.kind === "restratify_to";
 	const Icon =
 		edge.kind === "alternative"
-			? GitFork
+			? GitForkIcon
 			: edge.kind === "restratify_to"
-				? Shuffle
-				: ArrowRight;
+				? ShuffleIcon
+				: ArrowRightIcon;
 	return (
 		<li className="group/edge flex flex-wrap items-baseline gap-x-2 text-[15px] leading-snug">
 			<span
@@ -2469,9 +2492,10 @@ function EdgeLine({ edge, ctx }: { edge: Edge; ctx: Ctx }) {
 			{edge.evidence ? (
 				<button
 					type="button"
-					onClick={() =>
-						ctx.show(edge.evidence, edge.evidence!.page, edge.from)
-					}
+					onClick={() => {
+						if (edge.evidence)
+							ctx.show(edge.evidence, edge.evidence.page, edge.from);
+					}}
 					title={`“${restoreUnits(edge.evidence.text.replace(/\s+/g, " "))}”\nShow on page ${edge.evidence.page}`}
 					className="page-ref font-mono text-[13px] whitespace-nowrap text-accent opacity-0 transition-opacity group-hover/edge:opacity-100 focus-visible:opacity-100"
 				>
@@ -2500,13 +2524,13 @@ const MORE_GROUPS: { kind: Node["kind"]; label: string; icon: React.ReactNode }[
 	{
 		kind: "eligibility",
 		label: "Eligibility",
-		icon: <ClipboardCheck size={17} aria-hidden />,
+		icon: <ClipboardCheckIcon size={17} aria-hidden />,
 	},
-	{ kind: "drug_info", label: "Drugs", icon: <Pill size={17} aria-hidden /> },
+	{ kind: "drug_info", label: "Drugs", icon: <PillIcon size={17} aria-hidden /> },
 	{
 		kind: "schedule",
 		label: "Schedules",
-		icon: <CalendarDays size={17} aria-hidden />,
+		icon: <CalendarDaysIcon size={17} aria-hidden />,
 	},
 ];
 
@@ -2557,7 +2581,7 @@ function Collapsed({
 										className="group scroll-mt-(--stick) border-b border-line"
 									>
 										<summary className="flex cursor-pointer list-none items-center gap-2 py-2.5 text-[17px] font-medium hover:text-accent">
-											<ChevronRight
+											<ChevronRightIcon
 												size={17}
 												className="shrink-0 text-muted transition-transform group-open:rotate-90"
 											/>
@@ -2934,7 +2958,7 @@ function Checklist({
 								onClick={() => ctx.tick(key)}
 								className={`mt-1 flex size-[22px] shrink-0 items-center justify-center rounded-[5px] border-2 transition-colors focus-visible:outline-2 focus-visible:outline-accent ${ticked ? "border-go bg-go text-white" : "border-muted bg-white hover:border-accent"}`}
 							>
-								{ticked && <Check size={15} strokeWidth={3} />}
+								{ticked && <CheckIcon size={15} strokeWidth={3} />}
 							</button>
 							<TopicIcon text={i.a.text} className="mt-1.5" />
 							<LineText
@@ -2956,7 +2980,7 @@ function Checklist({
 									}
 									className={`no-print mt-1 shrink-0 rounded p-0.5 transition-opacity hover:bg-surface hover:text-accent focus-visible:opacity-100 ${note ? "text-accent" : "text-muted opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100"}`}
 								>
-									<StickyNote size={15} aria-hidden />
+									<StickyNoteIcon size={15} aria-hidden />
 								</button>
 							)}
 							<span
@@ -2982,7 +3006,7 @@ function Checklist({
 											title="Edit the note (yours, not the protocol's)"
 											className="flex max-w-xl items-start gap-1.5 rounded px-1.5 py-0.5 text-left text-sm text-ink/85 hover:bg-surface hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
 										>
-											<StickyNote
+											<StickyNoteIcon
 												size={13}
 												aria-hidden
 												className="mt-[3px] shrink-0 text-accent"
@@ -3112,8 +3136,8 @@ function Rules({ rules, hospital }: { rules?: Rule[]; hospital: string }) {
 					className="rounded-lg border-2 border-local/40 bg-local-soft px-4 py-3"
 				>
 					<p className="flex flex-wrap items-center gap-1.5 text-[13px] font-semibold text-local">
-						<Building2 size={15} aria-hidden /> {hospital} local rule, not
-						protocol text
+						<Building2Icon size={15} aria-hidden /> {hospital} local rule,
+						not protocol text
 						{r.state !== "active" ? (
 							<span className="rounded bg-warn-soft px-1.5 text-warn">
 								{r.state === "reconfirm"
@@ -3164,7 +3188,7 @@ function Outline({ spec, go }: { spec: Spec; go: (t: Target) => void }) {
 				onClick={() => setOpen((v) => !v)}
 				className="flex items-center gap-1 text-sm text-muted hover:text-accent"
 			>
-				<ChevronRight
+				<ChevronRightIcon
 					size={14}
 					className={`transition-transform ${open ? "rotate-90" : ""}`}
 				/>{" "}
@@ -3266,7 +3290,7 @@ function StepToc({
 				className={`line-clamp-2 rounded px-2 py-0.5 text-sm leading-snug transition-colors ${status?.(s.id) === "current" ? "bg-accent font-medium text-white" : spy === s.id ? "bg-accent-soft font-medium text-accent" : status?.(s.id) === "done" ? "text-go hover:bg-surface" : dim?.(s.id) ? "text-muted hover:bg-surface hover:text-ink" : "text-ink/80 hover:bg-surface hover:text-ink"}`}
 			>
 				{status?.(s.id) === "done" && (
-					<Check
+					<CheckIcon
 						size={13}
 						strokeWidth={3}
 						aria-label="completed"
@@ -3287,7 +3311,7 @@ function StepToc({
 				const here = g.steps.some((s) => s.id === spy);
 				const expanded = here || open.has(g.key);
 				return (
-					<div key={g.key + g.steps[0].id}>
+					<div key={g.key + (g.steps[0]?.id ?? "")}>
 						<button
 							type="button"
 							onClick={() =>

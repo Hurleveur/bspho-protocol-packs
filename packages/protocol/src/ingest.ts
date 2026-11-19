@@ -34,7 +34,11 @@ export async function ingestPdf(input: IngestInput): Promise<{
 	const known = registry.protocols
 		.filter((p) => p.published)
 		.map((p) => {
-			const v = p.versions.find((x) => x.sha256 === p.published)!;
+			const v = p.versions.find((x) => x.sha256 === p.published);
+			if (!v)
+				throw new Error(
+					`registry: ${p.id} publishes unknown version ${p.published}`,
+				);
 			return {
 				id: p.id,
 				short: p.short,
@@ -73,7 +77,11 @@ export async function ingestPdf(input: IngestInput): Promise<{
 	}
 	const previousSha = entry.published;
 	if (previousSha && previousSha !== spec.doc.sha256) {
-		const prev = entry.versions.find((v) => v.sha256 === previousSha)!;
+		const prev = entry.versions.find((v) => v.sha256 === previousSha);
+		if (!prev)
+			throw new Error(
+				`registry: ${entry.id} publishes unknown version ${previousSha}`,
+			);
 		spec.doc.supersedes = { version: prev.version, sha256: prev.sha256 };
 	}
 	if (!entry.versions.some((v) => v.sha256 === spec.doc.sha256)) {

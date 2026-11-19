@@ -4,11 +4,10 @@
 	"type": "module",
 	"description": "The protocol spec, PDF parsing, section detection, quote verification and the build pipeline.",
 	"exports": {
-		".": "./src/index.ts",
 		"./*": "./src/*.ts"
 	},
 	"scripts": {
-		"type-check": "nk type-check",
+		"type-check": "tsc --noEmit",
 		"test": "bun test"
 	},
 	"dependencies": {

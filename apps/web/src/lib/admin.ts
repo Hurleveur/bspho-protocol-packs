@@ -118,5 +118,5 @@ export async function adminData() {
 		reports: byShaReport,
 	};
 }
-export type AdminData = Awaited<ReturnType<typeof adminData>>;
+type AdminData = Awaited<ReturnType<typeof adminData>>;
 export type AdminRule = AdminData["localRules"][number];

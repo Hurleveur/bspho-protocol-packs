@@ -75,7 +75,7 @@ for (const c of catalog) {
 		};
 		let { spec } = await ingestPdf({
 			pdf: await Bun.file(resolve(DATA, c.file)).bytes(),
-			fileName: c.file.split("/").pop()!,
+			fileName: c.file.split("/").at(-1) ?? c.file,
 			uploadedBy: "seed",
 			identity: {
 				id: c.id,
@@ -87,13 +87,13 @@ for (const c of catalog) {
 				parentId: c.parentId,
 			},
 		});
-		if (worse(spec)) {
+		if (previous && worse(spec)) {
 			console.log(
-				`${c.id}: rebuild is structurally worse (${JSON.stringify(shape(spec))} vs ${JSON.stringify(shape(previous!))}), retrying once`,
+				`${c.id}: rebuild is structurally worse (${JSON.stringify(shape(spec))} vs ${JSON.stringify(shape(previous))}), retrying once`,
 			);
 			({ spec } = await ingestPdf({
 				pdf: await Bun.file(resolve(DATA, c.file)).bytes(),
-				fileName: c.file.split("/").pop()!,
+				fileName: c.file.split("/").at(-1) ?? c.file,
 				uploadedBy: "seed",
 				identity: {
 					id: c.id,

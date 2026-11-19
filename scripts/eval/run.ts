@@ -83,8 +83,10 @@ function byClass(issues: Issue[]): Row[] {
 			const ex: Issue[] = [];
 			const seen = new Set<string>();
 			for (const i of sorted)
-				if (!seen.has(i.protocol) && ex.length < 5)
-					(ex.push(i), seen.add(i.protocol));
+				if (!seen.has(i.protocol) && ex.length < 5) {
+					ex.push(i);
+					seen.add(i.protocol);
+				}
 			for (const i of sorted) if (ex.length < 5 && !ex.includes(i)) ex.push(i);
 			return {
 				class: cls,

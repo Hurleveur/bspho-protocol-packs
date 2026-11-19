@@ -4,7 +4,7 @@ import type { Finding } from "@bspho/protocol/spec";
 import { FAMILY_LABELS, store } from "@bspho/protocol/store";
 import { cookies } from "next/headers";
 
-export const HOSPITAL_COOKIE = "hospital";
+const HOSPITAL_COOKIE = "hospital";
 
 export async function currentHospital(): Promise<string> {
 	return (await cookies()).get(HOSPITAL_COOKIE)?.value ?? "UZG";

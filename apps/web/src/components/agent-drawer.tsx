@@ -3,13 +3,13 @@
 import type { Passage } from "@bspho/protocol/agent";
 import type { Anchor, ProtocolSpec } from "@bspho/protocol/spec";
 import {
-	ArrowUp,
-	ChevronRight,
-	LoaderCircle,
-	MessageSquareText,
-	RotateCcw,
-	Square,
-	X,
+	ArrowUpIcon,
+	ChevronRightIcon,
+	LoaderCircleIcon,
+	MessageSquareTextIcon,
+	RotateCcwIcon,
+	SquareIcon,
+	XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -156,15 +156,16 @@ export function AgentDrawer({ protocol, spec }: Props) {
 			};
 			let r = /^n(\d+)\.([bf])(\d+)$/.exec(id);
 			if (r) {
-				const n = spec.nodes[+r[1]];
+				const [, ni = "", kind, bi = ""] = r;
+				const n = spec.nodes[+ni];
 				return mk(
-					+r[1],
-					r[2] === "b" ? n?.blocks[+r[3]] : n?.figures?.[+r[3]]?.caption,
+					+ni,
+					kind === "b" ? n?.blocks[+bi] : n?.figures?.[+bi]?.caption,
 				);
 			}
 			r = /^e(\d+)$/.exec(id);
 			if (r) {
-				const e = spec.edges[+r[1]];
+				const e = spec.edges[+(r[1] ?? "")];
 				return e
 					? mk(
 							spec.nodes.findIndex((n) => n.id === e.from),
@@ -201,7 +202,11 @@ export function AgentDrawer({ protocol, spec }: Props) {
 		const ctrl = new AbortController();
 		abort.current = ctrl;
 		const update = (patch: Partial<Msg>) =>
-			setMsgs((ms) => [...ms.slice(0, -1), { ...ms[ms.length - 1], ...patch }]);
+			setMsgs((ms) => {
+				const last = ms.at(-1);
+				// Cleared mid-stream (the clear button aborts, then empties): nothing to patch.
+				return last ? [...ms.slice(0, -1), { ...last, ...patch }] : ms;
+			});
 		try {
 			const res = await fetch("/internal/agent", {
 				method: "POST",
@@ -277,7 +282,8 @@ export function AgentDrawer({ protocol, spec }: Props) {
 				onClick={() => setOpen(true)}
 				className="no-print fixed right-20 bottom-5 z-40 flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2 text-sm text-ink shadow-md transition-colors hover:border-accent hover:text-accent"
 			>
-				<MessageSquareText size={16} /> Ask {protocol ? "this protocol" : ""}
+				<MessageSquareTextIcon size={16} /> Ask{" "}
+				{protocol ? "this protocol" : ""}
 				<kbd className="rounded border border-line bg-paper px-1.5 font-mono text-xs text-muted">
 					Ctrl J
 				</kbd>
@@ -290,7 +296,7 @@ export function AgentDrawer({ protocol, spec }: Props) {
 			className="no-print fixed top-0 right-0 bottom-0 z-50 flex w-[30rem] max-w-full flex-col border-l border-line bg-surface shadow-2xl"
 		>
 			<header className="flex h-16 shrink-0 items-center gap-2 border-b border-line px-4">
-				<MessageSquareText size={18} className="text-accent" />
+				<MessageSquareTextIcon size={18} className="text-accent" />
 				<div className="min-w-0">
 					<p className="font-semibold">
 						Ask {protocol?.short ?? "a protocol"}
@@ -308,7 +314,7 @@ export function AgentDrawer({ protocol, spec }: Props) {
 							onClick={() => (abort.current?.abort(), setMsgs([]))}
 							className="rounded p-1.5 text-muted hover:bg-paper hover:text-ink"
 						>
-							<RotateCcw size={16} />
+							<RotateCcwIcon size={16} />
 						</button>
 					)}
 					<button
@@ -317,7 +323,7 @@ export function AgentDrawer({ protocol, spec }: Props) {
 						onClick={() => setOpen(false)}
 						className="rounded p-1.5 text-muted hover:bg-paper hover:text-ink"
 					>
-						<X size={18} />
+						<XIcon size={18} />
 					</button>
 				</div>
 			</header>
@@ -417,7 +423,7 @@ export function AgentDrawer({ protocol, spec }: Props) {
 									onClick={() => abort.current?.abort()}
 									className="rounded-md bg-ink p-2 text-white"
 								>
-									<Square size={14} />
+									<SquareIcon size={14} />
 								</button>
 							) : (
 								<button
@@ -426,7 +432,7 @@ export function AgentDrawer({ protocol, spec }: Props) {
 									disabled={!input.trim()}
 									className="rounded-md bg-accent p-2 text-white disabled:opacity-40"
 								>
-									<ArrowUp size={16} />
+									<ArrowUpIcon size={16} />
 								</button>
 							)}
 						</div>
@@ -462,9 +468,10 @@ function Answer({
 		for (const hit of text.matchAll(CITE)) {
 			if (hit.index > at)
 				parts.push(text.slice(at, hit.index).replace(/\s+$/, " "));
-			const p = resolve(hit[1]);
+			const id = hit[1] ?? "";
+			const p = resolve(id);
 			if (p) {
-				if (!ids.includes(hit[1])) ids.push(hit[1]);
+				if (!ids.includes(id)) ids.push(id);
 				const k = `${p.protocol}:${p.page}`;
 				if (!shown.has(k)) {
 					shown.add(k);
@@ -494,7 +501,7 @@ function Answer({
 		<div className="text-[15px] leading-relaxed">
 			{!m.content && !m.done && (
 				<p className="flex items-center gap-2 text-sm text-muted">
-					<LoaderCircle size={14} className="animate-spin" /> Reading the
+					<LoaderCircleIcon size={14} className="animate-spin" /> Reading the
 					protocol…
 				</p>
 			)}
@@ -520,7 +527,7 @@ function Answer({
 			{m.done && passages.length > 0 && (
 				<details className="group mt-3 rounded-md border border-line bg-paper">
 					<summary className="flex cursor-pointer list-none items-center gap-1 px-3 py-2 text-sm text-muted hover:text-ink">
-						<ChevronRight
+						<ChevronRightIcon
 							size={14}
 							className="transition-transform group-open:rotate-90"
 						/>

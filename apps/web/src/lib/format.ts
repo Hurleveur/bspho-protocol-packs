@@ -9,7 +9,20 @@ export function formatVersion(v?: string | null): string {
 export function formatDate(d?: string | null): string | undefined {
 	const m = d ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(d.trim()) : null;
 	if (!m) return d ?? undefined;
-	const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(m[2]) - 1];
+	const month = [
+		"Jan",
+		"Feb",
+		"Mar",
+		"Apr",
+		"May",
+		"Jun",
+		"Jul",
+		"Aug",
+		"Sep",
+		"Oct",
+		"Nov",
+		"Dec",
+	][Number(m[2]) - 1];
 	return `${Number(m[3])} ${month} ${m[1]}`;
 }
 

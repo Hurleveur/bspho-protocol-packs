@@ -155,7 +155,9 @@ export function sample(L: Loaded, flagged: Issue[], k: number): Node[] {
 				1.5 * (kinds.get(b.n.kind) ?? 0) -
 				(a.s - 1.5 * (kinds.get(a.n.kind) ?? 0)),
 		);
-		const { n } = scored.shift()!;
+		const best = scored.shift();
+		if (!best) break;
+		const { n } = best;
 		out.push(n);
 		kinds.set(n.kind, (kinds.get(n.kind) ?? 0) + 1);
 	}
@@ -320,15 +322,25 @@ export async function judgeNode(L: Loaded, n: Node): Promise<JudgeResult> {
 			1.6,
 		),
 	);
-	const figs = (n.figures ?? [])
-		.map((f, fi) => ({ fi, f }))
-		.filter(({ f }) => f.bbox);
-	const crops = figs.map(({ f }) =>
-		renderRegion(
-			L.doc,
-			f.page,
-			f.bbox!.map((v) => Math.round(v)) as [number, number, number, number],
-		),
+	const crops = (n.figures ?? []).flatMap((f, fi) =>
+		f.bbox
+			? [
+					{
+						fi,
+						f,
+						data: renderRegion(
+							L.doc,
+							f.page,
+							f.bbox.map((v) => Math.round(v)) as [
+								number,
+								number,
+								number,
+								number,
+							],
+						),
+					},
+				]
+			: [],
 	);
 	const prompt = [
 		"You audit a medical app that turns paediatric oncology protocol PDFs into consult sheets. Clinical text is copied verbatim from the PDF text layer; the risk is STRUCTURE: wrong splitting, ordering, grouping or classification of that text.",
@@ -347,7 +359,11 @@ export async function judgeNode(L: Loaded, n: Node): Promise<JudgeResult> {
 	].join("\n");
 	const key = createHash("sha256")
 		.update(prompt)
-		.update(Buffer.concat([...imgs, ...crops].map((i) => Buffer.from(i))))
+		.update(
+			Buffer.concat(
+				[...imgs, ...crops.map((c) => c.data)].map((i) => Buffer.from(i)),
+			),
+		)
 		.digest("hex");
 	const file = join(CACHE, `${key}.json`);
 	const t0 = Date.now();
@@ -370,10 +386,10 @@ export async function judgeNode(L: Loaded, n: Node): Promise<JudgeResult> {
 				{ type: "text" as const, text: `PAGE ${pages[i]} (full page):` },
 				{ type: "file" as const, data, mediaType: "image/png" },
 			]),
-			...crops.flatMap((data, i) => [
+			...crops.flatMap(({ fi, f, data }) => [
 				{
 					type: "text" as const,
-					text: `CROP #${figs[i].fi + 1} (figure on page ${figs[i].f.page}, as shown in the app):`,
+					text: `CROP #${fi + 1} (figure on page ${f.page}, as shown in the app):`,
 				},
 				{ type: "file" as const, data, mediaType: "image/png" },
 			]),
@@ -424,7 +440,8 @@ export async function judgeAll(
 	const results: JudgeResult[] = [];
 	const worker = async () => {
 		while (queue.length) {
-			const id = queue.shift()!;
+			const id = queue.shift();
+			if (id === undefined) break;
 			const L = load(id);
 			if (!L) continue;
 			for (const n of sample(L, flaggedBy.get(id) ?? [], k)) {
@@ -446,7 +463,7 @@ export function judgeIssues(results: JudgeResult[]): Issue[] {
 			protocol: r.protocol,
 			class: i.class,
 			severity: i.severity,
-			page: i.page ?? r.pages[0],
+			page: i.page ?? r.pages[0] ?? null,
 			nodeId: r.nodeId,
 			title: r.title,
 			detail: i.description,
@@ -463,7 +480,9 @@ if (import.meta.main && process.argv.slice(2).some((a) => a.includes(":"))) {
 	const results: JudgeResult[] = [];
 	const worker = async () => {
 		while (queue.length) {
-			const [id, pref] = queue.shift()!;
+			const target = queue.shift();
+			if (!target) break;
+			const [id, pref] = target;
 			const L = load(id);
 			const n = L?.spec.nodes.find((x) => x.id.startsWith(pref));
 			if (!L || !n) {
@@ -494,7 +513,11 @@ if (import.meta.main && process.argv.slice(2).some((a) => a.includes(":"))) {
 		.filter((p) => p.published && (!ids.length || ids.includes(p.id)))
 		.map((p) => p.id);
 	const flagged = new Map<string, Issue[]>();
-	for (const id of list) flagged.set(id, runChecks(load(id)!).issues);
+	for (const id of list) {
+		const L = load(id);
+		if (!L) throw new Error(`${id}: published spec not found`);
+		flagged.set(id, runChecks(L).issues);
+	}
 	const res = await judgeAll(
 		list,
 		flagged,

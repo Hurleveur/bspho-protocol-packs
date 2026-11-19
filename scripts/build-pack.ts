@@ -4,6 +4,8 @@ import { buildSpec } from "@bspho/protocol/build";
 const [pdfPath, out = "/dev/stdout"] = process.argv
 	.slice(2)
 	.filter((a) => !a.startsWith("--"));
+if (!pdfPath)
+	throw new Error("usage: bun scripts/build-pack.ts <pdf> [out.json] [--offline]");
 const spec = await buildSpec({
 	pdf: await Bun.file(pdfPath).bytes(),
 	offline: process.argv.includes("--offline"),

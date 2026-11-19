@@ -2,13 +2,13 @@
 
 import type { Edge, Node } from "@bspho/protocol/spec";
 import {
-	ArrowRight,
-	CircleCheck,
-	Clock,
-	GitFork,
-	Play,
-	Route,
-	Shuffle,
+	ArrowRightIcon,
+	CircleCheckIcon,
+	ClockIcon,
+	GitForkIcon,
+	PlayIcon,
+	RouteIcon,
+	ShuffleIcon,
 } from "lucide-react";
 import { useState } from "react";
 import { DELAY_REASONS, quote, stepExits } from "@/lib/case";
@@ -42,7 +42,7 @@ export function CaseStepPanel({
 	if (status === "done")
 		return (
 			<p className="mb-3 flex items-center gap-1.5 rounded-md bg-go-soft px-3 py-2 text-sm font-medium text-go">
-				<CircleCheck size={16} aria-hidden /> Completed in this case
+				<CircleCheckIcon size={16} aria-hidden /> Completed in this case
 			</p>
 		);
 	if (status !== "current") return null;
@@ -73,9 +73,9 @@ export function CaseStepPanel({
 				className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[15px] font-medium text-white ${kind === "arm" ? "bg-flow hover:bg-flow/90" : "bg-accent hover:bg-accent/90"}`}
 			>
 				{kind === "arm" ? (
-					<Shuffle size={15} aria-hidden />
+					<ShuffleIcon size={15} aria-hidden />
 				) : (
-					<ArrowRight size={15} aria-hidden />
+					<ArrowRightIcon size={15} aria-hidden />
 				)}
 				{kind === "arm" ? "Move to" : "Go to"} {title(e.to)}
 			</button>
@@ -98,7 +98,7 @@ export function CaseStepPanel({
 	return (
 		<div className="mb-4 rounded-lg border-2 border-accent/50 bg-accent-soft/60 p-4">
 			<p className="mb-2 flex items-center gap-2 text-base font-semibold text-accent">
-				<Route size={18} aria-hidden /> You are here
+				<RouteIcon size={18} aria-hidden /> You are here
 				<span className="font-normal text-muted">
 					· {c.started ? "started" : "not started"}
 					{total ? ` · ${ticked} of ${total} requirements ticked by you` : ""}
@@ -107,8 +107,8 @@ export function CaseStepPanel({
 
 			{delays.map((d, i) => (
 				<p key={i} className="mb-1 flex items-center gap-1.5 text-sm text-warn">
-					<Clock size={14} aria-hidden /> Postponed at protocol day {d.day}:{" "}
-					{DELAY_REASONS[d.reason]}
+					<ClockIcon size={14} aria-hidden /> Postponed at protocol day{" "}
+					{d.day}: {DELAY_REASONS[d.reason]}
 				</p>
 			))}
 
@@ -133,14 +133,14 @@ export function CaseStepPanel({
 						onClick={() => kase.update((s) => ({ ...s, started: true }))}
 						className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[15px] font-medium text-white hover:bg-accent/90"
 					>
-						<Play size={15} aria-hidden /> Start this step
+						<PlayIcon size={15} aria-hidden /> Start this step
 					</button>
 					<button
 						type="button"
 						onClick={() => setPostpone((v) => !v)}
 						className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-3 py-1.5 text-[15px] hover:border-accent"
 					>
-						<Clock size={15} aria-hidden /> Postpone
+						<ClockIcon size={15} aria-hidden /> Postpone
 					</button>
 				</div>
 			) : (
@@ -148,8 +148,8 @@ export function CaseStepPanel({
 					<p className="mb-1.5 text-sm font-semibold text-ink/80">
 						{flow.length > 1 ? (
 							<span className="inline-flex items-center gap-1.5 text-flow">
-								<GitFork size={15} aria-hidden /> Step completed: the
-								protocol forks here. Pick the branch.
+								<GitForkIcon size={15} aria-hidden /> Step completed:
+								the protocol forks here. Pick the branch.
 							</span>
 						) : flow.length === 1 ? (
 							"Step completed → next"
@@ -168,7 +168,8 @@ export function CaseStepPanel({
 									onClick={() => kase.moveTo(undefined)}
 									className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-[15px] font-medium text-white hover:bg-accent/90"
 								>
-									<CircleCheck size={15} aria-hidden /> Step completed
+									<CircleCheckIcon size={15} aria-hidden /> Step
+									completed
 								</button>
 							</li>
 						)}
@@ -186,8 +187,8 @@ export function CaseStepPanel({
 			{restrat.length > 0 && (
 				<details className="mt-3" open={c.started && !flow.length}>
 					<summary className="cursor-pointer text-sm font-semibold text-flow">
-						<Shuffle size={14} aria-hidden className="mr-1 inline" /> Move
-						to another arm ({restrat.length})
+						<ShuffleIcon size={14} aria-hidden className="mr-1 inline" />{" "}
+						Move to another arm ({restrat.length})
 					</summary>
 					<ul className="mt-2 grid gap-2">
 						{restrat.map((e) => option(e, "arm"))}

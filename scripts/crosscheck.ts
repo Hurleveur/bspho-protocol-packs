@@ -15,9 +15,9 @@ const only = args.filter((a) => !a.startsWith("--"));
 
 const [registry, overlay] = await Promise.all([store.registry(), store.overlay()]);
 const pairs: [string, string][] = [
-	...registry.protocols
-		.filter((p) => p.kind === "subprotocol" && p.parentId)
-		.map((p) => [p.parentId!, p.id] as [string, string]),
+	...registry.protocols.flatMap((p): [string, string][] =>
+		p.kind === "subprotocol" && p.parentId ? [[p.parentId, p.id]] : [],
+	),
 	...(overlay.usedTogether ?? []),
 ];
 const seen = new Set<string>();

@@ -30,7 +30,9 @@ export async function POST(req: Request) {
 					p.parentId === parsed.data.protocolId
 				: runs.has(p.id)),
 	);
-	const specs = await Promise.all(entries.map((p) => store.spec(p.id, p.published!)));
+	const specs = await Promise.all(
+		entries.flatMap((p) => (p.published ? [store.spec(p.id, p.published)] : [])),
+	);
 	const names = Object.fromEntries(entries.map((p) => [p.id, p.short]));
 	try {
 		return Response.json(await ask(parsed.data.question, specs, names));

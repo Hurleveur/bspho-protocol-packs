@@ -92,6 +92,13 @@ function blocksOf(n: Node, boiler: Set<string>): Blk[] {
 	return out;
 }
 
+/** `xs[k]`, for indices in range by construction. */
+function at<U>(xs: ArrayLike<U>, k: number): U {
+	const v = xs[k];
+	if (v === undefined) throw new Error(`index ${k} out of range (${xs.length})`);
+	return v;
+}
+
 /** Longest-common-subsequence alignment of two sequences; returns the edit script. */
 function align<T>(
 	a: T[],
@@ -102,36 +109,43 @@ function align<T>(
 	const m = b.length;
 	// Trim common prefix/suffix: most blocks and words are unchanged.
 	let pre = 0;
-	while (pre < n && pre < m && eq(a[pre], b[pre])) pre++;
+	while (pre < n && pre < m && eq(at(a, pre), at(b, pre))) pre++;
 	let suf = 0;
-	while (suf < n - pre && suf < m - pre && eq(a[n - 1 - suf], b[m - 1 - suf])) suf++;
+	while (suf < n - pre && suf < m - pre && eq(at(a, n - 1 - suf), at(b, m - 1 - suf)))
+		suf++;
 	const A = a.slice(pre, n - suf);
 	const B = b.slice(pre, m - suf);
 	const dp: Uint32Array[] = Array.from(
 		{ length: A.length + 1 },
 		() => new Uint32Array(B.length + 1),
 	);
-	for (let i = A.length - 1; i >= 0; i--)
+	for (let i = A.length - 1; i >= 0; i--) {
+		const row = at(dp, i);
+		const next = at(dp, i + 1);
 		for (let j = B.length - 1; j >= 0; j--)
-			dp[i][j] = eq(A[i], B[j])
-				? dp[i + 1][j + 1] + 1
-				: Math.max(dp[i + 1][j], dp[i][j + 1]);
+			row[j] = eq(at(A, i), at(B, j))
+				? at(next, j + 1) + 1
+				: Math.max(at(next, j), at(row, j + 1));
+	}
 	const mid: ReturnType<typeof align<T>> = [];
 	let i = 0;
 	let j = 0;
 	while (i < A.length || j < B.length) {
-		if (i < A.length && j < B.length && eq(A[i], B[j]))
-			mid.push({ op: "same", a: A[i++], b: B[j++] });
-		else if (j < B.length && (i === A.length || dp[i][j + 1] >= dp[i + 1][j]))
-			mid.push({ op: "add", b: B[j++] });
-		else mid.push({ op: "del", a: A[i++] });
+		if (i < A.length && j < B.length && eq(at(A, i), at(B, j)))
+			mid.push({ op: "same", a: at(A, i++), b: at(B, j++) });
+		else if (
+			j < B.length &&
+			(i === A.length || at(at(dp, i), j + 1) >= at(at(dp, i + 1), j))
+		)
+			mid.push({ op: "add", b: at(B, j++) });
+		else mid.push({ op: "del", a: at(A, i++) });
 	}
 	return [
-		...a.slice(0, pre).map((x, k) => ({ op: "same" as const, a: x, b: b[k] })),
+		...a.slice(0, pre).map((x, k) => ({ op: "same" as const, a: x, b: at(b, k) })),
 		...mid,
 		...a
 			.slice(n - suf)
-			.map((x, k) => ({ op: "same" as const, a: x, b: b[m - suf + k] })),
+			.map((x, k) => ({ op: "same" as const, a: x, b: at(b, m - suf + k) })),
 	];
 }
 
@@ -205,12 +219,14 @@ function diffBlocks(oldB: Blk[], newB: Blk[]): BlockChange[] {
 	const flush = () => {
 		const pairs = Math.min(dels.length, adds.length);
 		for (let k = 0; k < pairs; k++) {
-			const { segments, numbers } = wordDiff(dels[k].text, adds[k].text);
+			const d = at(dels, k);
+			const a = at(adds, k);
+			const { segments, numbers } = wordDiff(d.text, a.text);
 			out.push({
 				op: "changed",
 				segments,
 				numbers,
-				page: { old: dels[k].page, new: adds[k].page },
+				page: { old: d.page, new: a.page },
 			});
 		}
 		for (const d of dels.slice(pairs))
@@ -321,7 +337,11 @@ export function diffSpecs(prev: ProtocolSpec, next: ProtocolSpec): SpecDiff {
 			});
 
 	const rank = { numeric: 0, textual: 1, structural: 2 };
-	const page = (c: NodeChange) => (c.pages.new ?? c.pages.old)!.from;
+	const page = (c: NodeChange) => {
+		const at = c.pages.new ?? c.pages.old;
+		if (!at) throw new Error(`diff: change ${c.nodeId} has no pages`);
+		return at.from;
+	};
 	changes.sort((a, b) => rank[a.category] - rank[b.category] || page(a) - page(b));
 
 	return {

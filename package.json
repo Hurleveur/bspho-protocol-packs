@@ -2,7 +2,11 @@
 	"name": "bspho",
 	"private": true,
 	"description": "BSPHO protocol consult packs: protocol PDFs turned into fast, verified, step-by-step views for paediatric oncologists.",
-	"workspaces": ["apps/web", "packages/*", "scripts"],
+	"workspaces": [
+		"apps/web",
+		"packages/*",
+		"scripts"
+	],
 	"scripts": {
 		"prepare": "git config core.hooksPath .githooks || true",
 		"dev": "bun --filter @bspho/web dev",
@@ -11,11 +15,14 @@
 		"test": "bun --filter '*' test",
 		"check": "nk check",
 		"lint": "nk lint",
-		"format": "nk format"
+		"format": "nk format",
+		"knip": "nk knip",
+		"ci": "nk check && bun run type-check && bun run test"
 	},
 	"devDependencies": {
 		"@ingram-tech/nk-dev": "^0.22.0",
 		"@types/bun": "^1.4.4",
+		"knip": "^6.46.1",
 		"typescript": "^7.0.2"
 	}
 }

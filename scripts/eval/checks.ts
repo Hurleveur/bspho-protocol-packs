@@ -8,7 +8,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type * as mupdf from "mupdf";
-import { openPdf, type PdfPage, readPage } from "@bspho/protocol/pdf";
+import { type Box, openPdf, type PdfPage, readPage } from "@bspho/protocol/pdf";
 import { boilerplate, norm } from "@bspho/protocol/sections";
 import { LEAD_GLYPH } from "@bspho/protocol/summarize";
 import type { Anchor, Node, ProtocolSpec } from "@bspho/protocol/spec";
@@ -147,16 +147,16 @@ const clip = (s: string, n = 160) => {
 	const x = s.replace(/\s+/g, " ").trim();
 	return x.length > n ? `${x.slice(0, n)}…` : x;
 };
-const inside = (b: number[], f: number[], tol = 2) =>
+const inside = (b: Box, f: Box, tol = 2) =>
 	b[0] >= f[0] - tol &&
 	b[1] >= f[1] - tol &&
 	b[2] <= f[2] + tol &&
 	b[3] <= f[3] + tol;
-const overlapY = (a: number[], b: number[]) =>
-	Math.min(a[3], b[3]) - Math.max(a[1], b[1]);
+const overlapY = (a: Box, b: Box) => Math.min(a[3], b[3]) - Math.max(a[1], b[1]);
 
 /** PDF lines of a page that a block line box covers. */
-function pdfLinesFor(pg: PdfPage, box: number[]) {
+function pdfLinesFor(pg: PdfPage, box: Box | undefined) {
+	if (!box) return [];
 	return pg.lines.filter(
 		(l) =>
 			overlapY(l.bbox, box) > 0.5 * (l.bbox[3] - l.bbox[1]) &&
@@ -165,8 +165,8 @@ function pdfLinesFor(pg: PdfPage, box: number[]) {
 	);
 }
 
-function figureBoxes(spec: ProtocolSpec): Map<number, number[][]> {
-	const m = new Map<number, number[][]>();
+function figureBoxes(spec: ProtocolSpec): Map<number, Box[]> {
+	const m = new Map<number, Box[]>();
 	for (const n of spec.nodes)
 		for (const f of n.figures ?? [])
 			if (f.bbox) m.set(f.page, [...(m.get(f.page) ?? []), f.bbox]);
@@ -245,7 +245,8 @@ export function runChecks(L: Loaded): {
 	// A list = an intro (block ending ":" or a node title that reads as an intro) + the bullet items after it.
 	const lists: { intro: string; node: Node; page: number; items: DiagItem[] }[] = [];
 	for (const [, its] of byNode) {
-		const node = its[0].node;
+		const node = its[0]?.node;
+		if (!node) continue;
 		let cur: (typeof lists)[number] | null = null;
 		const titleIntro =
 			/:\s*$|\b(should|must|will) (have|be|include|receive)\b|\bincludes?:?$|following\s*:?$/i.test(
@@ -273,7 +274,7 @@ export function runChecks(L: Loaded): {
 		} else if (cur && !cur.items.length && cur.intro !== node.title) {
 			const next = (t.kids.get(node.id) ?? [])[0];
 			const nb = next?.blocks.filter((b) => isListItem(b.text)) ?? [];
-			if (nb.length >= 2)
+			if (next && nb.length >= 2)
 				add(
 					"split_list",
 					"high",
@@ -309,8 +310,8 @@ export function runChecks(L: Loaded): {
 	// relapse/recurrence/follow-up text inside initial-diagnosis stages
 	const relapseSeen = new Map<string, Issue>();
 	for (const [, its] of byNode) {
-		const node = its[0].node;
-		const ctxTitle = [node.title, ...node.headingPath].join(" / ");
+		const node = its[0]?.node;
+		if (!node) continue;
 		const sectionRelapse =
 			RELAPSE.test(node.title) ||
 			RELAPSE.test(node.headingPath.slice(-2).join(" "));
@@ -320,7 +321,8 @@ export function runChecks(L: Loaded): {
 				i.stage === "molecular" ||
 				i.stage === "extent",
 		);
-		if (!staged.length) continue;
+		const [firstStaged] = staged;
+		if (!firstStaged) continue;
 		if (sectionRelapse) {
 			if (
 				/\b(at|initial|primary) diagnos/i.test(
@@ -347,9 +349,10 @@ export function runChecks(L: Loaded): {
 				node,
 				node.pages.from,
 				`relapse/follow-up section "${clip(anc, 70)}" has ${staged.length} lines in initial work-up stages (${[...new Set(staged.map((s) => s.stage))].join("/")})`,
-				staged[0].a.text,
+				firstStaged.a.text,
 			);
-			relapseSeen.set(anc, issues.at(-1)!);
+			const added = issues.at(-1);
+			if (added) relapseSeen.set(anc, added);
 		} else {
 			const hits = staged.filter(
 				(i) =>
@@ -357,21 +360,22 @@ export function runChecks(L: Loaded): {
 						i.a.text,
 					) && !/\b(diagnosis|initial|baseline|primary)\b/i.test(i.a.text),
 			);
-			if (hits.length)
+			const [hit] = hits;
+			if (hit)
 				add(
 					"relapse_in_diagnosis",
 					"medium",
 					node,
-					hits[0].a.page,
-					`${hits.length} relapse/recurrence lines placed in initial work-up stage ${hits[0].stage}`,
-					hits[0].a.text,
+					hit.a.page,
+					`${hits.length} relapse/recurrence lines placed in initial work-up stage ${hit.stage}`,
+					hit.a.text,
 				);
 		}
 	}
 
 	// staging coverage
 	if (items.length) {
-		const cnt: Record<string, number> = {
+		const cnt: Record<string, number> & { other: number } = {
 			primary: 0,
 			molecular: 0,
 			extent: 0,
@@ -382,7 +386,7 @@ export function runChecks(L: Loaded): {
 		};
 		for (const it of items)
 			if (!isHeadingLine(it.a.text) && it.a.text.trim().length > 2)
-				cnt[it.stage ?? "other"]++;
+				cnt[it.stage ?? "other"] = (cnt[it.stage ?? "other"] ?? 0) + 1;
 		Object.assign(
 			stats,
 			Object.fromEntries(Object.entries(cnt).map(([k, v]) => [`stage_${k}`, v])),
@@ -408,7 +412,9 @@ export function runChecks(L: Loaded): {
 				items.find((i) => !i.stage)?.a.text ?? "",
 			);
 		for (const [, its] of byNode) {
-			const node = its[0].node;
+			const [first] = its;
+			if (!first) continue;
+			const { node } = first;
 			if (
 				node.kind === "diagnostics" &&
 				its.length >= 3 &&
@@ -420,7 +426,7 @@ export function runChecks(L: Loaded): {
 					node,
 					node.pages.from,
 					`diagnostics section with ${its.length} lines, none staged`,
-					its[0].a.text,
+					first.a.text,
 				);
 		}
 		// imaging-technique paragraphs sorted into work-up stages as if they were investigations
@@ -434,14 +440,15 @@ export function runChecks(L: Loaded): {
 					) &&
 					it.a.text.length > 120,
 			);
-			if (tech.length)
+			const [t0] = tech;
+			if (t0)
 				add(
 					"technique_in_workup",
 					"low",
-					tech[0].node,
-					tech[0].a.page,
+					t0.node,
+					t0.a.page,
 					`${tech.length} imaging-technique lines sorted into work-up stage(s) ${[...new Set(tech.map((x) => x.stage))].join("/")}`,
-					tech[0].a.text,
+					t0.a.text,
 				);
 		}
 	} else if (spec.doc && !spec.nodes.some((n) => n.kind === "diagnostics"))
@@ -459,6 +466,7 @@ export function runChecks(L: Loaded): {
 				"",
 			)
 			.trim();
+		const firstBlock = n.blocks[0];
 		if (
 			/^[a-z]/.test(bare) &&
 			!/^[a-z]+[A-Z]/.test(bare) &&
@@ -473,28 +481,27 @@ export function runChecks(L: Loaded): {
 				"title starts lowercase (wrapped heading cut)",
 				n.title,
 			);
-		else if (n.blocks[0] && !sameTitle(n.blocks[0].text, n.title)) {
-			const b0 = n.blocks[0].text
-				.split("\n")[0]
+		else if (firstBlock && !sameTitle(firstBlock.text, n.title)) {
+			const b0 = (firstBlock.text.split("\n")[0] ?? "")
 				.replace(/^[\d.\s]+/, "")
 				.trim()
 				.toLowerCase();
 			const tt = bare.toLowerCase();
-			const pl = pdfLinesFor(L.page(n.blocks[0].page), n.blocks[0].bbox[0])[0];
+			const pl = pdfLinesFor(L.page(firstBlock.page), firstBlock.bbox[0])[0];
 			if (
 				tt.length >= 4 &&
 				b0.length > tt.length &&
 				b0.startsWith(tt) &&
 				pl?.bold &&
-				n.blocks[0].text.length < 160
+				firstBlock.text.length < 160
 			)
 				add(
 					"truncated_title",
 					"medium",
 					n,
-					n.blocks[0].page,
+					firstBlock.page,
 					"first block repeats the heading in heading style (heading line duplicated or wrapped heading tail)",
-					n.blocks[0].text,
+					firstBlock.text,
 				);
 		}
 		// summaries are scan-lines next to a checkbox: a copied list glyph shows as a stray bullet
@@ -513,16 +520,17 @@ export function runChecks(L: Loaded): {
 		// section shift: the section's own heading line sits inside its body, so the lines above it belong to the
 		// previous section (the heading's position on the page was wrong when the section was cut)
 		const own = n.blocks.findIndex(
-			(b, i) => i > 0 && sameTitle(b.text.split("\n")[0], n.title),
+			(b, i) => i > 0 && sameTitle(b.text.split("\n")[0] ?? "", n.title),
 		);
-		if (bare.length >= 6 && own > 0)
+		const ownBlock = n.blocks[own];
+		if (bare.length >= 6 && own > 0 && ownBlock && firstBlock)
 			add(
 				"section_shift",
 				"high",
 				n,
-				n.blocks[own].page,
+				ownBlock.page,
 				`heading line is block ${own + 1} of the section: the ${own} block(s) above it belong to the previous section`,
-				n.blocks[0].text,
+				firstBlock.text,
 			);
 		// heading's own visual line: wrapped heading where the detected title is only one line of it
 		if (bare.length >= 6) {
@@ -584,12 +592,13 @@ export function runChecks(L: Loaded): {
 			const num =
 				toks.filter((w) => /^[\d.,%<>≥≤±–\-/x×]+$/.test(w) && /\d/.test(w))
 					.length / (toks.length || 1);
-			if (rowRun.length >= 2)
+			const [firstRow] = rowRun;
+			if (firstRow && rowRun.length >= 2)
 				add(
 					"flattened_table",
 					num > 0.3 ? "high" : "medium",
 					n,
-					rowRun[0].page,
+					firstRow.page,
 					`${rowRun.length} table rows of 3+ cells shown as separate text blocks (numeric ${(num * 100) | 0}%)`,
 					text,
 				);
@@ -726,15 +735,18 @@ export function runChecks(L: Loaded): {
 				/\b([A-Za-z][A-Za-z-]{5,}(?: [A-Za-z][A-Za-z-]{2,}){0,3}) \1\b/.exec(
 					flat,
 				);
-			const single = dbl ? !dbl[1].includes(" ") : false;
-			const after = dbl ? flat.slice(dbl.index + 2 * dbl[1].length + 2) : "";
+			const word = dbl?.[1];
+			const single = word ? !word.includes(" ") : false;
+			const after =
+				dbl && word ? flat.slice(dbl.index + 2 * word.length + 2) : "";
 			const before = dbl ? flat.slice(0, dbl.index) : "";
 			const placeName =
-				single && (/\b(of|in)\s*$/.test(before) || /^,/.test(after));
-			const typo = single && /^[a-z]/.test(dbl![1]);
+				single && (/\b(of|in)\s*$/.test(before) || after.startsWith(","));
+			const typo = single && /^[a-z]/.test(word ?? "");
 			if (
 				dbl &&
-				!STOP.has(dbl[1].toLowerCase()) &&
+				word &&
+				!STOP.has(word.toLowerCase()) &&
 				!covered &&
 				!inRefs &&
 				!placeName &&
@@ -742,15 +754,15 @@ export function runChecks(L: Loaded): {
 			) {
 				if (
 					/^[a-z]/.test(after) &&
-					/^[A-Z]/.test(dbl[1]) &&
-					dbl[1] !== dbl[1].toUpperCase()
+					/^[A-Z]/.test(word) &&
+					word !== word.toUpperCase()
 				)
 					add(
 						"runin_merged",
 						"medium",
 						n,
 						a.page,
-						`run-in heading "${dbl[1]}" merged into its paragraph ("${dbl[1]} ${dbl[1]} ...")`,
+						`run-in heading "${word}" merged into its paragraph ("${word} ${word} ...")`,
 						flat,
 					);
 				else
@@ -759,7 +771,7 @@ export function runChecks(L: Loaded): {
 						"high",
 						n,
 						a.page,
-						`repeated sequence "${clip(dbl[1], 40)} ${clip(dbl[1], 40)}"`,
+						`repeated sequence "${clip(word, 40)} ${clip(word, 40)}"`,
 						flat.slice(Math.max(0, dbl.index - 40), dbl.index + 120),
 					);
 			}
@@ -768,14 +780,15 @@ export function runChecks(L: Loaded): {
 			const m = /^([A-Z][A-Za-z/&,()' -]{3,70}):\s+(\S.{60,})/s.exec(
 				tx.replace(/^[\d.]+\s+/, ""),
 			);
+			const runIn = m?.[1];
 			if (
-				m &&
-				m[1].split(/\s+/).length <= 9 &&
-				m[1].split(/\s+/).filter((w) => /^[A-Z]/.test(w)).length >= 3
+				runIn &&
+				runIn.split(/\s+/).length <= 9 &&
+				runIn.split(/\s+/).filter((w) => /^[A-Z]/.test(w)).length >= 3
 			) {
 				const first = pdfLinesFor(pg, a.bbox[0])[0];
 				const boldPrefix = first
-					? boldPrefixOf(L.doc, a.page, first.bbox, m[1])
+					? boldPrefixOf(L.doc, a.page, first.bbox, runIn)
 					: false;
 				if (boldPrefix)
 					add(
@@ -783,7 +796,7 @@ export function runChecks(L: Loaded): {
 						"medium",
 						n,
 						a.page,
-						`bold run-in heading "${m[1]}:" merged into the paragraph`,
+						`bold run-in heading "${runIn}:" merged into the paragraph`,
 						tx,
 					);
 			}
@@ -877,27 +890,29 @@ export function runChecks(L: Loaded): {
 					);
 			}
 			const fk = `${f.page}:${f.bbox?.map(Math.round).join(",")}`;
-			if (f.bbox && !f.structure?.table && !figSeen.has(fk)) {
+			const fbox = f.bbox;
+			if (fbox && !f.structure?.table && !figSeen.has(fk)) {
 				figSeen.add(fk);
 				const pg = L.page(f.page);
 				const prose = pg.lines.filter(
 					(l) =>
-						inside(l.bbox, f.bbox!, 1) &&
+						inside(l.bbox, fbox, 1) &&
 						l.text.length >= 75 &&
 						l.text.split(" ").length >= 12 &&
 						!l.cells,
 				);
 				const areaShare =
-					((f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1])) /
+					((fbox[2] - fbox[0]) * (fbox[3] - fbox[1])) /
 					(pg.width * pg.height);
-				if (prose.length >= 4)
+				const [firstProse] = prose;
+				if (firstProse && prose.length >= 4)
 					add(
 						"figure_overrun",
 						prose.length >= 8 ? "high" : "medium",
 						n,
 						f.page,
 						`figure crop contains ${prose.length} full prose lines (crop overruns into text, or a text box shown as an image) (crop ${(areaShare * 100) | 0}% of page)`,
-						prose[0].text,
+						firstProse.text,
 					);
 			}
 		}
@@ -932,7 +947,7 @@ export function runChecks(L: Loaded): {
 				"long_evidence",
 				ev.length > 800 ? "high" : "medium",
 				t.byId.get(e.from) ?? null,
-				e.evidence!.page,
+				e.evidence?.page ?? null,
 				`${e.kind} edge ${e.from} -> ${e.to}: evidence ${ev.length} chars`,
 				ev,
 			);
@@ -1008,16 +1023,18 @@ export function runChecks(L: Loaded): {
 	// (3) forks whose evidence is not a decision
 	const CUE =
 		/MRD|respon|risk|stratif|randomi|eligib|\bif\b|patients with|patients who|in case|<|>|≥|≤|positive|negative|group|arm\b|according to|depending|either|\bor\b/i;
-	for (const e of spec.edges.filter((x) => x.kind === "alternative" && x.evidence))
-		if (!CUE.test(e.evidence!.text))
+	for (const e of spec.edges) {
+		const ev = e.evidence;
+		if (e.kind === "alternative" && ev && !CUE.test(ev.text))
 			add(
 				"fork_evidence_mismatch",
 				"medium",
 				t.byId.get(e.from) ?? null,
-				e.evidence!.page,
+				ev.page,
 				`alternative edge ${t.byId.get(e.from)?.title ?? e.from} -> ${t.byId.get(e.to)?.title ?? e.to}: evidence has no decision cue`,
-				e.evidence!.text,
+				ev.text,
 			);
+	}
 	// (4) missing forks
 	for (const [from, es] of outE) {
 		const nx = es.filter((e) => e.kind === "next");
@@ -1048,8 +1065,9 @@ export function runChecks(L: Loaded): {
 				/^(.{3,}?)[\s:–-]+(?:arm\s+)?([A-F]|[a-z][A-Z]{1,3}|[A-Z]{2,3})$/.exec(
 					bareT(k.title),
 				);
-			if (!m) continue;
-			const key = `${m[1].toLowerCase()}|${m[2].length === 1 ? "letter" : m[2].toLowerCase()}`;
+			const [, stem, variant] = m ?? [];
+			if (!stem || !variant) continue;
+			const key = `${stem.toLowerCase()}|${variant.length === 1 ? "letter" : variant.toLowerCase()}`;
 			groups.set(key, [...(groups.get(key) ?? []), k]);
 		}
 		for (const [key, g] of groups) {
@@ -1058,12 +1076,18 @@ export function runChecks(L: Loaded): {
 			const chained = flow.some(
 				(e) => e.kind === "next" && ids.has(e.from) && ids.has(e.to),
 			); // A1 -> B1 -> C1 is a sequence
-			if (g.length >= 2 && !chained && !g.some((x) => altTargets.has(x.id)))
+			const [first] = g;
+			if (
+				first &&
+				g.length >= 2 &&
+				!chained &&
+				!g.some((x) => altTargets.has(x.id))
+			)
 				add(
 					"missing_fork",
 					"high",
-					g[0],
-					g[0].pages.from,
+					first,
+					first.pages.from,
 					`${g.length} variant sections "${stem} …" with no alternative edge to any of them`,
 					g.map((x) => x.title).join(" | "),
 				);
@@ -1107,7 +1131,7 @@ export function runChecks(L: Loaded): {
 		const texts = n.blocks.map((b) => b.text);
 		const aims = texts.filter((x) => AIM.test(x)).length;
 		const crit = texts.filter((x) => CRIT.test(x)).length;
-		const firstAim = texts[0] && AIM.test(texts[0].split(/[.;]/)[0]);
+		const firstAim = texts[0] && AIM.test(texts[0].split(/[.;]/)[0] ?? "");
 		if (
 			(AIM.test(n.title) && !CRIT.test(n.title)) ||
 			(aims >= 2 && aims > crit) ||
@@ -1126,24 +1150,28 @@ export function runChecks(L: Loaded): {
 	// --- block segmentation: sentences cut in two, statements shown as tickable items, sub-items merged
 	const CHECKLIST_TITLE =
 		/investigation|examination|work-?up|assessment|required|requirement|before (the )?start|prior to|checklist|diagnos/i;
-	const inChecklist = (n: Node): boolean =>
-		n.kind === "start_requirements" ||
-		n.kind === "diagnostics" ||
-		CHECKLIST_TITLE.test(n.title) ||
-		(!!n.parent && !!t.byId.get(n.parent) && inChecklist(t.byId.get(n.parent)!));
+	const inChecklist = (n: Node): boolean => {
+		if (
+			n.kind === "start_requirements" ||
+			n.kind === "diagnostics" ||
+			CHECKLIST_TITLE.test(n.title)
+		)
+			return true;
+		const parent = n.parent ? t.byId.get(n.parent) : undefined;
+		return !!parent && inChecklist(parent);
+	};
 	stats.blocks = 0;
 	stats.blocksWithRole = 0;
 	for (const n of spec.nodes) {
 		const bs = n.blocks;
 		stats.blocks += bs.length;
 		stats.blocksWithRole += bs.filter((b) => b.role).length;
-		for (let i = 0; i < bs.length; i++) {
-			const a = bs[i];
+		for (const [i, a] of bs.entries()) {
 			const tx = a.text.trim();
 			const b = bs[i + 1];
 			// A sentence cut at a line end: "...the last COPDAC-" | "28) or DECOPDAC-21 cycle..." (same page: a page break is always two anchors).
 			if (b && b.page === a.page) {
-				const last = tx.split("\n").at(-1)!.trim();
+				const last = (tx.split("\n").at(-1) ?? "").trim();
 				const next = b.text.trim();
 				const hyphen =
 					/[\p{L}\d]-$/u.test(last) && !/^[•●▪◦■□♦◆►▸➢➤✓✔\-–]/u.test(next);
@@ -1174,7 +1202,7 @@ export function runChecks(L: Loaded): {
 				"",
 			);
 			const statement =
-				/\.$/.test(body) &&
+				body.endsWith(".") &&
 				body.split(/\s+/).length >= 5 &&
 				!/[≥≤<>]/.test(body) &&
 				/^(?:patients?|children|all patients|they|it|this|these|there|no patient|radiotherapy|treatment|the patient)\b[^.]{0,100}\b(?:do(?:es)? not receive|receives?|will (?:receive|be (?:treated|stratified|randomi[sz]ed|allocated|assigned|given))|are (?:treated|stratified|allocated|assigned|considered|defined|randomi[sz]ed|(?:not )?eligible)|is (?:defined|considered)|should be stratified|continues?|(?:will )?start)\b/i.test(
@@ -1192,7 +1220,7 @@ export function runChecks(L: Loaded): {
 			// Several (sub-)numbered items in one block: "3. Bone marrow:\n3.1 Morphology.\n3.2 Immunophenotyping".
 			// (not a table of contents with dot leaders, nor prose wrapping before "11.3 Chemotherapy" mid-sentence)
 			const ls = a.text.split("\n").map((x) => x.trim());
-			const numbered = /^\d{1,2}(?:\.\d{1,2}){0,2}[.)]?\s/.test(ls[0]);
+			const numbered = /^\d{1,2}(?:\.\d{1,2}){0,2}[.)]?\s/.test(ls[0] ?? "");
 			if (
 				!/\.{5,}|…{2,}/.test(a.text) &&
 				ls.some(
@@ -1200,7 +1228,7 @@ export function runChecks(L: Loaded): {
 						k > 0 &&
 						(/^\d{1,2}\.\d{1,2}(?:\.\d{1,2})?\.?\s+\p{Lu}/u.test(x) ||
 							(numbered && /^\d{1,2}[.)]\s+\p{Lu}/u.test(x))) &&
-						(numbered || /[.:;]$/.test(ls[k - 1])),
+						(numbered || /[.:;]$/.test(ls[k - 1] ?? "")),
 				)
 			)
 				add(
@@ -1247,12 +1275,12 @@ function dedupe(issues: Issue[]): Issue[] {
 /** True when the run-in phrase at the start of a line is set in bold in the PDF while the rest of the line is not. */
 const stextCache = new WeakMap<
 	mupdf.Document,
-	Map<number, { text: string; bold: boolean; bbox: number[] }[]>
+	Map<number, { text: string; bold: boolean; bbox: Box }[]>
 >();
 function boldPrefixOf(
 	doc: mupdf.Document,
 	page: number,
-	lineBox: number[],
+	lineBox: Box,
 	phrase: string,
 ): boolean {
 	let m = stextCache.get(doc);
@@ -1275,7 +1303,12 @@ function boldPrefixOf(
 				bold:
 					l.font?.weight === "bold" ||
 					/bold|black|heavy|semibold|demi/i.test(l.font?.name ?? ""),
-				bbox: [l.bbox.x, l.bbox.y, l.bbox.x + l.bbox.w, l.bbox.y + l.bbox.h],
+				bbox: [
+					l.bbox.x,
+					l.bbox.y,
+					l.bbox.x + l.bbox.w,
+					l.bbox.y + l.bbox.h,
+				] satisfies Box,
 			})),
 		);
 		m.set(page, pieces);
@@ -1283,11 +1316,12 @@ function boldPrefixOf(
 	const row = pieces
 		.filter((p) => overlapY(p.bbox, lineBox) > 2)
 		.sort((a, b) => a.bbox[0] - b.bbox[0]);
-	if (row.length < 2) return false;
-	const head = row[0].text.trim().replace(/:$/, "");
-	const word = phrase.split(/\s+/)[0];
+	const [first] = row;
+	if (!first || row.length < 2) return false;
+	const head = first.text.trim().replace(/:$/, "");
+	const word = phrase.split(/\s+/)[0] ?? "";
 	return (
-		row[0].bold &&
+		first.bold &&
 		head.startsWith(word) &&
 		row.slice(1).some((p) => !p.bold && p.text.trim().length > 20)
 	);

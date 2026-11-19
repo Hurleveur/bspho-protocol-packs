@@ -4,7 +4,7 @@ import { CheckIcon, CircleAlertIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { StageEvent, StageName } from "./types";
 
-export const STAGES: { id: StageName; label: string }[] = [
+const STAGES: { id: StageName; label: string }[] = [
 	{ id: "parse", label: "Reading pages" },
 	{ id: "identity", label: "Recognising the protocol" },
 	{ id: "sections", label: "Finding sections" },

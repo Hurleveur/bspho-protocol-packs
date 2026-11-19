@@ -158,9 +158,10 @@ export function corpus(
 	if (hit) return hit;
 	const passages = new Map<string, Passage>();
 	const byLineKey = new Map<string, string>();
-	const parts = [serializeOne(main.spec, main.name, "", passages, byLineKey)];
+	const mainText = serializeOne(main.spec, main.name, "", passages, byLineKey);
+	const parts = [mainText];
 	const included = [main.spec.doc.id];
-	let size = parts[0].length;
+	let size = mainText.length;
 	for (const [i, s] of subs.entries()) {
 		const sub = new Map<string, Passage>();
 		const text = serializeOne(s.spec, s.name, `s${i + 1}.`, sub);
@@ -198,6 +199,7 @@ function describe(c: Corpus, loc: Location | undefined): string {
 		const i = id ? c.nodeIndex.get(id) : undefined;
 		if (i === undefined) return null;
 		const n = c.spec.nodes[i];
+		if (!n) return null;
 		return `[n${i}] "${flat(n.title)}" (${n.kind}; ${[...n.headingPath, n.title].map(flat).join(" › ")}; pp.${n.pages.from}-${n.pages.to})`;
 	};
 	const out: string[] = [];
@@ -260,7 +262,7 @@ export const CITE = /\[((?:s\d+\.)?(?:n\d+\.[bf]\d+|e\d+))(?:\s+p\d+)?\]/g;
 
 /** Passage ids an answer cites, with their verbatim text. Ids the model made up are dropped. */
 export function cited(c: Corpus, text: string): Passage[] {
-	const ids = [...new Set([...text.matchAll(CITE)].map((m) => m[1]))];
+	const ids = [...new Set([...text.matchAll(CITE)].flatMap((m) => m[1] ?? []))];
 	return ids.map((id) => c.passages.get(id)).filter((p): p is Passage => !!p);
 }
 

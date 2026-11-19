@@ -51,7 +51,7 @@ export const norm = (t: string) =>
 	t.toLowerCase().replace(/\d+/g, "#").replace(/\s+/g, " ").trim();
 
 function clean(t: string): string {
-	let s = t.trim().split(/\s{3,}|\t/)[0];
+	let s = t.trim().split(/\s{3,}|\t/)[0] ?? "";
 	s = s.replace(/\s*\.{3,}.*$/, "");
 	s = s.replace(/\s+/g, " ").replace(/^[\s:–\-•]+|[\s:–\-•]+$/g, "");
 	return s;
@@ -116,8 +116,9 @@ function classify(
 	const styled = l.bold || l.size >= body + 0.9;
 	const m = NUMBERED.exec(t);
 	if (m) {
-		const [, num, title] = m;
-		const first = num.split(".")[0];
+		// (both groups are mandatory, so a match always fills them)
+		const [, num = "", title = ""] = m;
+		const first = num.split(".")[0] ?? "";
 		if (/^\d+$/.test(first) && !(+first >= 1 && +first <= 40)) return null;
 		if (
 			!/^\p{Lu}/u.test(title) ||
@@ -256,9 +257,11 @@ export function outlineHeadings(
 		const full = norm(title);
 		let j = at + 1;
 		for (; at >= 0 && j < lines.length && j <= at + 3; j++) {
-			const t = norm(lines[j].text);
+			const lj = lines[j];
+			if (!lj) break;
+			const t = norm(lj.text);
 			if (t.length < 3 || !full.includes(t)) break;
-			yEnd = lines[j].bbox[3];
+			yEnd = lj.bbox[3];
 		}
 		// A wrapped tail the bookmark left out ("... Consolidation 1" / "(Augmented BFM)"): same style, right below.
 		const pl = lines[j - 1];
@@ -296,7 +299,8 @@ export function buildSections(pages: PdfPage[], headings: Heading[]): Section[] 
 	const stack: Heading[] = [];
 	const sections: Section[] = [];
 	for (const h of sorted) {
-		while (stack.length && stack.at(-1)!.rank <= h.rank) stack.pop();
+		for (let top = stack.at(-1); top && top.rank <= h.rank; top = stack.at(-1))
+			stack.pop();
 		sections.push({
 			heading: h,
 			parent: stack.at(-1)?.id ?? null,
@@ -322,9 +326,13 @@ export function buildSections(pages: PdfPage[], headings: Heading[]): Section[] 
 			)
 				continue;
 			const pos = at(p.page, l.bbox[1]);
-			while (si + 1 < sections.length && starts[si + 1] <= pos + 0.5) si++;
-			if (si < 0) continue;
+			while (
+				si + 1 < sections.length &&
+				(starts[si + 1] ?? Infinity) <= pos + 0.5
+			)
+				si++;
 			const s = sections[si];
+			if (!s) continue; // before the first heading (si is -1)
 			const h = s.heading;
 			if (
 				h.page === p.page &&

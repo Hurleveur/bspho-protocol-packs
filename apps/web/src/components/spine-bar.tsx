@@ -2,14 +2,14 @@
 
 import type { Anchor, Edge, Node } from "@bspho/protocol/spec";
 import {
-	Check,
-	ChevronDown,
-	ChevronRight,
-	GitFork,
-	Layers,
-	Route,
-	Shuffle,
-	X,
+	CheckIcon,
+	ChevronDownIcon,
+	ChevronRightIcon,
+	GitForkIcon,
+	LayersIcon,
+	RouteIcon,
+	ShuffleIcon,
+	XIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { quoteLine } from "@/lib/format";
@@ -74,7 +74,7 @@ export function SpineBar({
 		for (const a of arms) for (const s of a.steps) m.set(s.id, a);
 		return m;
 	}, [arms]);
-	const [lastArm, setLastArm] = useState<string | undefined>(undefined);
+	const [lastArm, setLastArm] = useState<string>();
 	const spyArm = armOf.get(spy)?.key;
 	if (spyArm !== undefined && spyArm !== lastArm) setLastArm(spyArm);
 	const readArm =
@@ -100,7 +100,8 @@ export function SpineBar({
 	useEffect(() => {
 		if (!picker) return;
 		const close = (e: MouseEvent) => {
-			if (!pickerRef.current?.contains(e.target as globalThis.Node)) setPicker(false);
+			if (!pickerRef.current?.contains(e.target as globalThis.Node))
+				setPicker(false);
 		};
 		const esc = (e: KeyboardEvent) => e.key === "Escape" && setPicker(false);
 		document.addEventListener("mousedown", close);
@@ -136,7 +137,7 @@ export function SpineBar({
 						: "text-ink/85 hover:bg-paper hover:text-ink"
 		}`;
 	const sep = (k: string) => (
-		<ChevronRight
+		<ChevronRightIcon
 			key={k}
 			size={13}
 			aria-hidden
@@ -146,7 +147,7 @@ export function SpineBar({
 	const marker = (key: string, via: Edge[], title: string) => {
 		const anchors = via.flatMap((e) => (e.evidence ? [e.evidence] : []));
 		const restrat = via.some((e) => e.kind === "restratify_to");
-		const Icon = restrat ? Shuffle : GitFork;
+		const Icon = restrat ? ShuffleIcon : GitForkIcon;
 		return (
 			<button
 				key={key}
@@ -188,7 +189,7 @@ export function SpineBar({
 				className={`${pill(on, st)} ${compact ? "max-w-40" : ""}`}
 			>
 				{st === "done" && (
-					<Check
+					<CheckIcon
 						size={12}
 						strokeWidth={3}
 						aria-label="completed"
@@ -263,7 +264,10 @@ export function SpineBar({
 							key={key}
 							type="button"
 							data-spine-on={on || st === "current" ? "" : undefined}
-							onClick={() => go(slot.steps[0].id)}
+							onClick={() => {
+								const first = slot.steps[0];
+								if (first) go(first.id);
+							}}
 							onMouseEnter={(ev) =>
 								tipAt(ev.currentTarget, {
 									title: `${seg.arm.label}: ${slot.steps.length} steps`,
@@ -274,7 +278,7 @@ export function SpineBar({
 							onMouseLeave={leave}
 							className={pill(on, st)}
 						>
-							<Layers size={12} aria-hidden className="shrink-0" />
+							<LayersIcon size={12} aria-hidden className="shrink-0" />
 							<span className="tabular-nums">
 								{slot.steps.length} steps
 							</span>
@@ -295,8 +299,9 @@ export function SpineBar({
 									: "Option at a fork",
 						),
 					);
-				if (slot.steps.length === 1) {
-					push(stepButton(slot.steps[0], seg.arm));
+				const only = slot.steps[0];
+				if (slot.steps.length === 1 && only) {
+					push(stepButton(only, seg.arm));
 					return;
 				}
 				// A fork's options side by side, in one bracket.
@@ -308,7 +313,10 @@ export function SpineBar({
 						{slot.steps.map((s, i) => (
 							<span key={s.id} className="flex items-center">
 								{i > 0 && (
-									<span aria-hidden className="px-0.5 text-xs text-faint">
+									<span
+										aria-hidden
+										className="px-0.5 text-xs text-faint"
+									>
 										or
 									</span>
 								)}
@@ -336,11 +344,11 @@ export function SpineBar({
 							title="Show the treatment path of one risk group"
 							className="flex h-full items-center gap-1.5 pr-1.5 pl-2"
 						>
-							<Route size={14} aria-hidden />
+							<RouteIcon size={14} aria-hidden />
 							<span className="max-w-36 truncate font-medium">
 								{path ? path.label : "All groups"}
 							</span>
-							<ChevronDown size={13} aria-hidden />
+							<ChevronDownIcon size={13} aria-hidden />
 						</button>
 						{path && (
 							<button
@@ -350,7 +358,7 @@ export function SpineBar({
 								onClick={() => setPath(null)}
 								className="flex h-full items-center border-l border-accent/30 px-1.5 hover:bg-accent hover:text-white"
 							>
-								<X size={13} />
+								<XIcon size={13} />
 							</button>
 						)}
 					</div>
@@ -377,7 +385,9 @@ export function SpineBar({
 									}}
 									className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left ${path?.id === p.id ? "bg-accent-soft font-medium text-accent" : "hover:bg-paper"}`}
 								>
-									<span className="min-w-0 flex-1 truncate">{p.label}</span>
+									<span className="min-w-0 flex-1 truncate">
+										{p.label}
+									</span>
 									<span className="text-xs text-faint tabular-nums">
 										{p.steps.size} steps
 									</span>
@@ -411,59 +421,67 @@ export function SpineBar({
 			{/* Portalled: the bar's backdrop blur would make it the box `fixed` is measured from. */}
 			{tip &&
 				createPortal(
-				<div
-					onMouseEnter={() => clearTimeout(hideTip.current)}
-					onMouseLeave={leave}
-					style={{ left: tip.x, top: tip.y }}
-					className="fixed z-50 w-[26rem] rounded-lg border border-line bg-surface p-3 text-sm shadow-lg"
-				>
-					<p className="mb-1 text-xs font-semibold tracking-wide text-flow uppercase">
-						{tip.title}
-					</p>
-					{tip.note && <p className="text-muted">{tip.note}</p>}
-					{tip.anchors.map((a, i) => (
-						<button
-							key={i}
-							type="button"
-							onClick={() => {
-								setTip(null);
-								show(a);
-							}}
-							className="mt-1 block w-full rounded border border-line bg-paper px-2 py-1.5 text-left hover:border-flow/50 hover:bg-flow-soft"
-						>
-							<span className="verbatim line-clamp-6">{quoteLine(a.text)}</span>
-							<span className="mt-0.5 block text-xs text-accent">
-								p. {a.page} · open the page
-							</span>
-						</button>
-					))}
-					{tip.steps && (
-						<ul className="mt-1 grid max-h-72 gap-0.5 overflow-y-auto">
-							{tip.steps.map((s) => (
-								<li key={s.id}>
-									<button
-										type="button"
-										onClick={() => {
-											setTip(null);
-											go(s.id);
-										}}
-										className={`flex w-full items-baseline gap-2 rounded px-2 py-1 text-left hover:bg-paper ${s.id === active ? "font-medium text-accent" : ""}`}
-									>
-										{status?.(s.id) === "done" && (
-											<Check size={12} strokeWidth={3} className="text-go" />
-										)}
-										<span className="min-w-0 flex-1">{s.title}</span>
-										<span className="text-xs text-faint tabular-nums">
-											p. {s.pages.from}
-										</span>
-									</button>
-								</li>
-							))}
-						</ul>
-					)}
-				</div>,
-				document.body,
-			)}
+					<div
+						onMouseEnter={() => clearTimeout(hideTip.current)}
+						onMouseLeave={leave}
+						style={{ left: tip.x, top: tip.y }}
+						className="fixed z-50 w-[26rem] rounded-lg border border-line bg-surface p-3 text-sm shadow-lg"
+					>
+						<p className="mb-1 text-xs font-semibold tracking-wide text-flow uppercase">
+							{tip.title}
+						</p>
+						{tip.note && <p className="text-muted">{tip.note}</p>}
+						{tip.anchors.map((a, i) => (
+							<button
+								key={i}
+								type="button"
+								onClick={() => {
+									setTip(null);
+									show(a);
+								}}
+								className="mt-1 block w-full rounded border border-line bg-paper px-2 py-1.5 text-left hover:border-flow/50 hover:bg-flow-soft"
+							>
+								<span className="verbatim line-clamp-6">
+									{quoteLine(a.text)}
+								</span>
+								<span className="mt-0.5 block text-xs text-accent">
+									p. {a.page} · open the page
+								</span>
+							</button>
+						))}
+						{tip.steps && (
+							<ul className="mt-1 grid max-h-72 gap-0.5 overflow-y-auto">
+								{tip.steps.map((s) => (
+									<li key={s.id}>
+										<button
+											type="button"
+											onClick={() => {
+												setTip(null);
+												go(s.id);
+											}}
+											className={`flex w-full items-baseline gap-2 rounded px-2 py-1 text-left hover:bg-paper ${s.id === active ? "font-medium text-accent" : ""}`}
+										>
+											{status?.(s.id) === "done" && (
+												<CheckIcon
+													size={12}
+													strokeWidth={3}
+													className="text-go"
+												/>
+											)}
+											<span className="min-w-0 flex-1">
+												{s.title}
+											</span>
+											<span className="text-xs text-faint tabular-nums">
+												p. {s.pages.from}
+											</span>
+										</button>
+									</li>
+								))}
+							</ul>
+						)}
+					</div>,
+					document.body,
+				)}
 		</div>
 	);
 }

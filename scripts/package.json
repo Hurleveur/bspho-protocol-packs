@@ -4,10 +4,16 @@
 	"type": "module",
 	"description": "Operational scripts: build packs from PDFs, sync with storage, evaluate.",
 	"dependencies": {
+		"@ai-sdk/google-vertex": "^5.0.126",
 		"@bspho/protocol": "workspace:*",
-		"mupdf": "^1.28.1"
+		"ai": "^7.0.156",
+		"mupdf": "^1.28.1",
+		"zod": "^4.6.7"
 	},
 	"devDependencies": {
 		"xlsx": "^0.18.5"
+	},
+	"scripts": {
+		"type-check": "tsc --noEmit"
 	}
 }

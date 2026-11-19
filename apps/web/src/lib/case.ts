@@ -19,7 +19,7 @@ export const DELAY_REASONS = [
 	"other per protocol",
 ] as const;
 
-export interface CaseDelay {
+interface CaseDelay {
 	step: string;
 	reason: number;
 	day: number;
@@ -46,7 +46,7 @@ export interface CaseState {
 
 /* ------------------------------------------------------------------ refs + code */
 
-export function ref(id: string): string {
+function ref(id: string): string {
 	let h = 0x811c9dc5;
 	for (let i = 0; i < id.length; i++) {
 		h ^= id.charCodeAt(i);
@@ -116,9 +116,11 @@ export function decodeCase(
 		return {
 			error: "This is not a case code. It looks like protocol.version.code.",
 		};
+	// All three groups are required by the pattern.
+	const [, protocolId = "", sha8 = "", payload = ""] = m;
 	let w: Wire;
 	try {
-		const parsed: unknown = JSON.parse(unb64(m[3]));
+		const parsed: unknown = JSON.parse(unb64(payload));
 		if (!parsed || typeof parsed !== "object") throw new Error();
 		w = parsed as Wire;
 	} catch {
@@ -164,8 +166,8 @@ export function decodeCase(
 	return {
 		dropped,
 		state: {
-			protocolId: m[1],
-			sha8: m[2],
+			protocolId,
+			sha8,
 			arm: w.a ? id(w.a) : undefined,
 			why: ints(w.w),
 			done: strs(w.d)
@@ -432,7 +434,7 @@ export function ehrSummary(opts: {
 const clip = (s: string, n = 160) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
 /** Criteria lines of an arm node, in the same order the start screen numbered them. */
-export function criteriaOf(arm: Node): Anchor[] {
+function criteriaOf(arm: Node): Anchor[] {
 	return arm.kind === "risk_group"
 		? arm.blocks.filter(
 				(a) => a.text.trim().length > 2 && !sameTitle(a.text, arm.title),

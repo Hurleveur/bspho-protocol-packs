@@ -2,16 +2,16 @@
 
 import type { Edge, Node } from "@bspho/protocol/spec";
 import {
-	Check,
-	ClipboardCopy,
-	ClipboardPaste,
-	Ellipsis,
-	FileText,
-	History,
-	Printer,
-	Route,
-	Settings,
-	X,
+	CheckIcon,
+	ClipboardCopyIcon,
+	ClipboardPasteIcon,
+	EllipsisIcon,
+	FileTextIcon,
+	HistoryIcon,
+	PrinterIcon,
+	RouteIcon,
+	SettingsIcon,
+	XIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -93,7 +93,7 @@ export function CaseHeaderButtons({
 				aria-label="More actions"
 				className={`flex items-center rounded-md border px-2.5 py-2 transition-colors hover:border-accent focus-visible:outline-2 focus-visible:outline-accent ${open ? "border-accent text-accent" : "border-line"}`}
 			>
-				<Ellipsis size={18} />
+				<EllipsisIcon size={18} />
 			</button>
 			{open && (
 				<div
@@ -102,19 +102,19 @@ export function CaseHeaderButtons({
 				>
 					{!kase.state &&
 						item(
-							<Route size={16} />,
+							<RouteIcon size={16} />,
 							"Follow a case",
 							"Track one patient's position. Nothing is stored.",
 							() => kase.setUi("start"),
 						)}
 					{item(
-						<ClipboardPaste size={16} />,
+						<ClipboardPasteIcon size={16} />,
 						"Paste case code",
 						"Reopen a case from the EHR note",
 						() => kase.setUi("paste"),
 					)}
 					{item(
-						<Printer size={16} />,
+						<PrinterIcon size={16} />,
 						"Print",
 						"The sheet as shown, with page references",
 						onPrint,
@@ -137,7 +137,7 @@ export function CaseHeaderButtons({
 								className={`flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-left text-sm hover:bg-accent-soft focus-visible:bg-accent-soft focus-visible:outline-none ${lang === l.id ? "font-medium" : ""}`}
 							>
 								<span className="w-4 text-accent">
-									{lang === l.id && <Check size={16} />}
+									{lang === l.id && <CheckIcon size={16} />}
 								</span>
 								{l.label}
 							</button>
@@ -150,7 +150,7 @@ export function CaseHeaderButtons({
 						className="flex items-start gap-2.5 rounded-md px-3 py-2 hover:bg-accent-soft"
 					>
 						<span className="mt-0.5 text-accent">
-							<Settings size={16} />
+							<SettingsIcon size={16} />
 						</span>
 						<span>
 							<span className="block text-sm font-medium">Admin</span>
@@ -186,7 +186,7 @@ export function CaseBar({
 		<div className="no-print border-b border-accent/30 bg-accent-soft/95 px-4 py-2 backdrop-blur">
 			<div className="flex items-center gap-3 text-sm">
 				<span className="flex shrink-0 items-center gap-1.5 font-semibold text-accent">
-					<Route size={16} aria-hidden /> Case
+					<RouteIcon size={16} aria-hidden /> Case
 				</span>
 				<span
 					className="max-w-[16rem] min-w-0 shrink-0 truncate"
@@ -223,7 +223,7 @@ export function CaseBar({
 					onClick={() => kase.setUi("summary")}
 					className="flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 font-medium text-white hover:bg-accent/90"
 				>
-					<ClipboardCopy size={15} aria-hidden /> Copy for EHR
+					<ClipboardCopyIcon size={15} aria-hidden /> Copy for EHR
 				</button>
 				<button
 					type="button"
@@ -242,7 +242,7 @@ export function CaseBar({
 			</div>
 			{kase.stale && (
 				<div className="mt-2 flex items-center gap-3 rounded-md border border-warn/40 bg-warn-soft px-3 py-2 text-sm text-warn">
-					<History size={16} aria-hidden className="shrink-0" />
+					<HistoryIcon size={16} aria-hidden className="shrink-0" />
 					<span className="min-w-0 flex-1">
 						This case started on{" "}
 						{kase.stale.version
@@ -306,7 +306,7 @@ function Modal({
 						onClick={onClose}
 						className="ml-auto rounded p-1 text-muted hover:bg-paper hover:text-ink"
 					>
-						<X size={18} />
+						<XIcon size={18} />
 					</button>
 				</div>
 				<div className="min-h-0 overflow-y-auto px-5 py-4">{children}</div>
@@ -581,7 +581,7 @@ function SummaryDialog({ text, onClose }: { text: string; onClose: () => void })
 	return (
 		<Modal title="Handover / EHR summary" onClose={onClose} wide>
 			<p className="mb-2 flex items-center gap-1.5 text-sm text-muted">
-				<FileText size={15} aria-hidden /> Paste this into the EHR note. The
+				<FileTextIcon size={15} aria-hidden /> Paste this into the EHR note. The
 				last line reopens the case. {NOTHING_STORED}
 			</p>
 			<textarea
@@ -597,7 +597,7 @@ function SummaryDialog({ text, onClose }: { text: string; onClose: () => void })
 				onClick={() => void copy()}
 				className="mt-3 flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 font-medium text-white hover:bg-accent/90"
 			>
-				<ClipboardCopy size={16} aria-hidden /> {copied ? "Copied" : "Copy"}
+				<ClipboardCopyIcon size={16} aria-hidden /> {copied ? "Copied" : "Copy"}
 			</button>
 		</Modal>
 	);

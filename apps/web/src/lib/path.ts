@@ -43,16 +43,16 @@ export interface RiskPath {
 
 const FLOW = new Set<Edge["kind"]>(["next", "alternative", "restratify_to"]);
 
-export const slug = (s: string) =>
+const slug = (s: string) =>
 	s
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, "-")
 		.replace(/^-|-$/g, "");
 
 /** "High-Risk (HR) for BCP-patients" → "HR BCP"; "Therapy for Down Patients" → "Down". */
-export function groupLabel(short: string): string {
-	let s = short
-		.split(/\s+[–—-]\s+/)[0]
+function groupLabel(short: string): string {
+	// split always yields at least one piece.
+	let s = (short.split(/\s+[–—-]\s+/)[0] ?? "")
 		.replace(/^post[\s-]+induction\s+/i, "")
 		.replace(/\s+treatment\b/i, "")
 		.replace(/^therapy\s+for\s+/i, "")
@@ -66,7 +66,8 @@ export function groupLabel(short: string): string {
 /** An arm's short name: the group's chip label when the arm is one group's own, else its tab label. */
 export function armName(arm: Arm, paths: RiskPath[]): string {
 	const own = paths.filter((p) => p.own.size === 1 && p.own.has(arm.key));
-	return own.length === 1 ? own[0].label : arm.short;
+	const [only] = own;
+	return own.length === 1 && only ? only.label : arm.short;
 }
 
 export function riskPaths(

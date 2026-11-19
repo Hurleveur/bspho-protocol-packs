@@ -386,22 +386,30 @@ export async function summarizeSpec(
 	async function runChunk(items: Item[]) {
 		const accepted: Summaries[] = items.map(() => ({}));
 		let pending = new Map<number, string>(); // index → reason, lines needing a (re)try
+		// Every index below comes from `items`, so it is in range for both arrays.
+		const row = (i: number) => {
+			const item = items[i];
+			const acc = accepted[i];
+			if (!item || !acc) throw new Error(`summary row ${i} out of range`);
+			return { item, acc };
+		};
 		const apply = (out: z.infer<typeof LineOut>, idx: number[], final: boolean) => {
 			const byI = new Map(out.lines.map((l) => [l.i, l]));
 			const next = new Map<number, string>();
 			idx.forEach((orig, j) => {
 				const got = byI.get(j);
+				const { item, acc } = row(orig);
 				const reasons: string[] = [];
 				for (const lang of LANGS) {
-					if (accepted[orig][lang]) continue;
+					if (acc[lang]) continue;
 					// The checklist draws its own box: a copied list glyph is dropped.
 					const s =
 						got?.[lang]
 							?.replace(/\s+/g, " ")
 							.trim()
 							.replace(LEAD_GLYPH, "") ?? "";
-					const why = checkSummary(items[orig].block.text, s, lang);
-					if (!why) accepted[orig][lang] = s;
+					const why = checkSummary(item.block.text, s, lang);
+					if (!why) acc[lang] = s;
 					else reasons.push(`${lang}: ${why}`);
 				}
 				if (reasons.length) next.set(orig, reasons.join(", "));
@@ -412,25 +420,27 @@ export async function summarizeSpec(
 
 		// A second call reviews the accepted summaries against their lines; a meaning change is rejected.
 		const review = async (idx: number[], final: boolean) => {
-			const shown = idx.filter((i) => Object.keys(accepted[i]).length);
+			const shown = idx.filter((i) => Object.keys(row(i).acc).length);
 			if (!shown.length) return;
 			try {
 				const { out } = await limit(() =>
 					callModel(
 						Verdicts,
 						reviewPrompt(
-							shown.map((i) => ({
-								original: items[i].block.text,
-								sum: accepted[i],
-							})),
+							shown.map((i) => {
+								const { item, acc } = row(i);
+								return { original: item.block.text, sum: acc };
+							}),
 						),
 						onUsage,
 					),
 				);
 				for (const v of out.changed) {
 					const orig = shown[v.i];
-					if (orig === undefined || !accepted[orig][v.lang]) continue;
-					delete accepted[orig][v.lang];
+					if (orig === undefined) continue;
+					const { acc } = row(orig);
+					if (!acc[v.lang]) continue;
+					delete acc[v.lang];
 					stats.meaning++;
 					if (!final)
 						pending.set(
@@ -461,7 +471,7 @@ export async function summarizeSpec(
 		if (pending.size) {
 			const idx = [...pending.keys()];
 			stats.retried += idx.length;
-			const sub = idx.map((i) => items[i]);
+			const sub = idx.map((i) => row(i).item);
 			const why = new Map(idx.map((orig, j) => [j, pending.get(orig) ?? ""]));
 			try {
 				const { out } = await limit(() =>
@@ -475,9 +485,10 @@ export async function summarizeSpec(
 		}
 		items.forEach((it, i) => {
 			const prev = opts.force ? {} : (it.block.sum ?? {});
-			const merged: Summaries = { ...prev, ...accepted[i] };
+			const { acc } = row(i);
+			const merged: Summaries = { ...prev, ...acc };
 			for (const lang of LANGS) {
-				if (merged[lang]) stats.ok += accepted[i][lang] ? 1 : 0;
+				if (merged[lang]) stats.ok += acc[lang] ? 1 : 0;
 				else stats.rejected++;
 			}
 			it.block.sum = Object.keys(merged).length ? merged : undefined;

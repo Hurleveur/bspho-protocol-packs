@@ -127,7 +127,7 @@ export function promptFor(protocol: string, group: SegInput[]) {
 	const body = group
 		.map(
 			(s, i) =>
-				`## S${i} "${s.title.replace(/\s+/g, " ").slice(0, 120)}"\n${fmt(s.lines, ids[i])}`,
+				`## S${i} "${s.title.replace(/\s+/g, " ").slice(0, 120)}"\n${fmt(s.lines, ids[i] ?? [])}`,
 		)
 		.join("\n\n");
 	return { prompt: `${INSTRUCTIONS}\n\nProtocol: ${protocol}\n\n${body}`, ids };
@@ -141,19 +141,24 @@ export function anchorsFrom(
 ): Anchor[] | null {
 	if (!blocks?.length || !lines.length) return null;
 	const at = new Map(ids.map((id, i) => [id, i]));
-	const starts = blocks.map((b) => at.get(b.start.trim()));
+	// Every start must name a line, the first must be the first line, and they must strictly increase.
+	const starts: number[] = [];
+	for (const b of blocks) {
+		const start = at.get(b.start.trim());
+		if (start === undefined || start <= (starts.at(-1) ?? -1)) return null;
+		starts.push(start);
+	}
 	if (starts[0] !== 0) return null;
-	for (let i = 1; i < starts.length; i++)
-		if (starts[i] === undefined || starts[i]! <= starts[i - 1]!) return null;
 	const out: Anchor[] = [];
 	blocks.forEach((b, i) => {
-		const run = lines.slice(starts[i]!, starts[i + 1] ?? lines.length);
+		const run = lines.slice(starts[i] ?? 0, starts[i + 1] ?? lines.length);
 		// An anchor is one span on one page: a block crossing a page break is two anchors with the same role.
 		let cur: Line[] = [];
 		const flush = () => {
-			if (cur.length)
+			const [lead] = cur;
+			if (lead)
 				out.push({
-					page: cur[0].page,
+					page: lead.page,
 					text: cur.map((l) => l.text).join("\n"),
 					bbox: cur.map((l) => l.bbox),
 					role: b.role,
@@ -162,7 +167,8 @@ export function anchorsFrom(
 			cur = [];
 		};
 		for (const l of run) {
-			if (cur.length && cur[0].page !== l.page) flush();
+			const lead = cur[0];
+			if (lead && lead.page !== l.page) flush();
 			cur.push(l);
 		}
 		flush();
@@ -187,6 +193,7 @@ export async function segmentAll(
 	const worker = async () => {
 		while (next < groups.length) {
 			const group = groups[next++];
+			if (!group) break;
 			const { prompt, ids } = promptFor(protocol, group);
 			let ans: SegmentAnswer | undefined;
 			try {
@@ -196,7 +203,7 @@ export async function segmentAll(
 			}
 			group.forEach((s, i) => {
 				const got = ans?.sections.find((x) => x.id.trim() === `S${i}`);
-				const a = anchorsFrom(s.lines, ids[i], got?.blocks);
+				const a = anchorsFrom(s.lines, ids[i] ?? [], got?.blocks);
 				if (a) blocks.set(s.key, a);
 				else failed.push(s.key);
 			});

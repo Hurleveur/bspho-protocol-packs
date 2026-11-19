@@ -75,14 +75,12 @@ export function MonitoringView({
 							!DOSING.test(head)
 						);
 					})
-					.map((f) => ({ f, n })),
+					.flatMap((f) => (f.bbox ? [{ f, n, bbox: f.bbox }] : [])),
 			)
 			.filter(
 				(x, i, all) =>
 					all.findIndex(
-						(y) =>
-							y.f.page === x.f.page &&
-							y.f.bbox!.join() === x.f.bbox!.join(),
+						(y) => y.f.page === x.f.page && y.bbox.join() === x.bbox.join(),
 					) === i,
 			);
 		const nodeOf = new Map<string, string>();
@@ -107,11 +105,9 @@ export function MonitoringView({
 		<div className="mb-8 grid gap-6">
 			{schedules.length > 0 && (
 				<div className="grid gap-5">
-					<h3 className="text-xl font-semibold">
-						Schedule of assessments
-					</h3>
-					{schedules.map(({ f, n }) => {
-						const crop = f.bbox!.map((v) => Math.round(v)).join(",");
+					<h3 className="text-xl font-semibold">Schedule of assessments</h3>
+					{schedules.map(({ f, n, bbox }) => {
+						const crop = bbox.map((v) => Math.round(v)).join(",");
 						return (
 							<figure
 								key={`${n.id}-${f.page}-${crop}`}
@@ -224,13 +220,17 @@ export function MonitoringView({
 																						tp: c.key,
 																					},
 																		);
-																		if (!on)
+																		const first =
+																			lines[0];
+																		if (
+																			!on &&
+																			first
+																		)
 																			show(
-																				lines[0],
-																				lines[0]
-																					.page,
+																				first,
+																				first.page,
 																				nodeFor(
-																					lines[0],
+																					first,
 																				),
 																			);
 																	}}
@@ -276,7 +276,11 @@ export function MonitoringView({
 										key={`${a.page}-${i}`}
 										type="button"
 										onClick={() => show(a, a.page, nodeFor(a))}
-										title={summaryOf(a, lang) ? display(a.text) : undefined}
+										title={
+											summaryOf(a, lang)
+												? display(a.text)
+												: undefined
+										}
 										className={`group flex w-full items-start gap-3 rounded-md px-2 py-1 text-left transition-colors ${active === a ? "bg-mark/70" : "hover:bg-paper"}`}
 									>
 										<span className="verbatim min-w-0 flex-1 text-[16px] leading-relaxed text-pretty">

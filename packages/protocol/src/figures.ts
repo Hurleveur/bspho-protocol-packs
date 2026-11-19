@@ -24,6 +24,14 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { type Box, openPdf, renderRegion, sha256 } from "./pdf.ts";
 import { normalize } from "./verify.ts";
 
+/** `xs[i]` where the index is in bounds by construction (loop bounds, a prior length check). */
+function nth<T>(xs: readonly T[], i: number): T {
+	const x = xs[i];
+	if (x === undefined)
+		throw new Error(`figures: index ${i} out of bounds (${xs.length})`);
+	return x;
+}
+
 // --- Output shape -------------------------------------------------------------------------
 
 /** How much an element can be trusted. */
@@ -125,7 +133,7 @@ export function readRegion(doc: mupdf.Document, page: number, bbox: Box): Region
 	// Pieces: runs of characters on one line, split wherever the gap exceeds ~1.5 spaces
 	// (diagram labels side by side on one baseline are separate pieces).
 	const pieces: Piece[] = [];
-	let run: { c: string; q: number[]; size: number; bold: boolean }[] = [];
+	let run: { c: string; q: mupdf.Quad; size: number; bold: boolean }[] = [];
 	const flushRun = () => {
 		const t = run
 			.map((r) => r.c)
@@ -165,8 +173,8 @@ export function readRegion(doc: mupdf.Document, page: number, bbox: Box): Region
 			if (wmode) return;
 			const ink = run.filter((r) => r.c.trim());
 			if (!c.trim()) {
-				if (ink.length)
-					run.push({ c: " ", q: ink.at(-1)!.q, size, bold: false });
+				const last = ink.at(-1);
+				if (last) run.push({ c: " ", q: last.q, size, bold: false });
 				return;
 			}
 			if (ink.length) {
@@ -200,7 +208,8 @@ export function readRegion(doc: mupdf.Document, page: number, bbox: Box): Region
 		let cur: [number, number][] = [];
 		let closed = false;
 		const flush = () => {
-			if (cur.length > 1) subs.push(closed ? [...cur, cur[0]] : cur);
+			const [first] = cur;
+			if (first && cur.length > 1) subs.push(closed ? [...cur, first] : cur);
 			cur = [];
 			closed = false;
 		};
@@ -235,9 +244,13 @@ export function readRegion(doc: mupdf.Document, page: number, bbox: Box): Region
 			if (!inside(bb, bbox, 6)) continue;
 			const w = bb[2] - bb[0];
 			const h = bb[3] - bb[1];
+			const [first] = pts;
+			const last = pts.at(-1);
 			const isClosed =
 				pts.length >= 4 &&
-				Math.hypot(pts[0][0] - pts.at(-1)![0], pts[0][1] - pts.at(-1)![1]) < 1;
+				first !== undefined &&
+				last !== undefined &&
+				Math.hypot(first[0] - last[0], first[1] - last[1]) < 1;
 			if (isClosed && w > 15 && h > 8) {
 				rects.push(bb);
 				continue;
@@ -299,9 +312,13 @@ export function readRegion(doc: mupdf.Document, page: number, bbox: Box): Region
 				);
 				continue;
 			}
-			if (!filled)
-				for (let i = 1; i < pts.length; i++)
-					segs.push({ a: pts[i - 1], b: pts[i] });
+			if (!filled) {
+				let prev: [number, number] | undefined;
+				for (const q of pts) {
+					if (prev) segs.push({ a: prev, b: q });
+					prev = q;
+				}
+			}
 		}
 	};
 	const dev = new mupdf.Device({
@@ -333,7 +350,7 @@ export function readRegion(doc: mupdf.Document, page: number, bbox: Box): Region
 	// Dedupe rects (fill + stroke of the same box).
 	const uniq: Box[] = [];
 	for (const r of rects)
-		if (!uniq.some((u) => u.every((v, i) => Math.abs(v - r[i]) < 1.5)))
+		if (!uniq.some((u) => u.every((v, i) => Math.abs(v - nth(r, i)) < 1.5)))
 			uniq.push(r);
 	return { pieces, rects: uniq, segs, arrowheads, imageArea, images };
 }
@@ -346,12 +363,12 @@ function vectorNodes(reg: Region): FigNode[] {
 	const free: Piece[] = [];
 	for (const pc of reg.pieces) {
 		let best = -1;
-		for (let i = 0; i < reg.rects.length; i++)
-			if (
-				inside(pc.bbox, reg.rects[i], 1.5) &&
-				(best < 0 || area(reg.rects[i]) < area(reg.rects[best]))
-			)
+		let bestRect: Box | undefined;
+		for (const [i, r] of reg.rects.entries())
+			if (inside(pc.bbox, r, 1.5) && (!bestRect || area(r) < area(bestRect))) {
 				best = i;
+				bestRect = r;
+			}
 		// A rect that contains other rects with text is a frame/panel, not a box: handled by smallest-first.
 		if (best < 0) free.push(pc);
 		else owner.set(best, [...(owner.get(best) ?? []), pc]);
@@ -364,13 +381,13 @@ function vectorNodes(reg: Region): FigNode[] {
 	const nodes: FigNode[] = [];
 	for (const [i, ps] of [...owner.entries()].sort(
 		(a, b) =>
-			reg.rects[a[0]][1] - reg.rects[b[0]][1] ||
-			reg.rects[a[0]][0] - reg.rects[b[0]][0],
+			nth(reg.rects, a[0])[1] - nth(reg.rects, b[0])[1] ||
+			nth(reg.rects, a[0])[0] - nth(reg.rects, b[0])[0],
 	))
 		nodes.push({
 			id: `b${nodes.length + 1}`,
 			text: read(ps),
-			bbox: reg.rects[i],
+			bbox: nth(reg.rects, i),
 			status: "verified",
 			role: "box",
 		});
@@ -378,7 +395,7 @@ function vectorNodes(reg: Region): FigNode[] {
 	const groups: Piece[][] = [];
 	for (const pc of free.sort((a, b) => a.bbox[1] - b.bbox[1])) {
 		const g = groups.find((g) => {
-			const l = g.at(-1)!;
+			const l = nth(g, g.length - 1);
 			return (
 				pc.bbox[1] - l.bbox[3] < 4 &&
 				pc.bbox[1] >= l.bbox[1] &&
@@ -441,7 +458,7 @@ function connectorEdges(reg: Region, nodes: FigNode[]): { from: string; to: stri
 	// Union-find over segments that touch.
 	const parent = segs.map((_, i) => i);
 	const find = (i: number): number =>
-		parent[i] === i ? i : (parent[i] = find(parent[i]));
+		parent[i] === i ? i : (parent[i] = find(nth(parent, i)));
 	const near = (p: [number, number], s: Seg, tol = 2.5) => {
 		const [dx, dy] = [s.b[0] - s.a[0], s.b[1] - s.a[1]];
 		const len2 = dx * dx + dy * dy || 1;
@@ -451,15 +468,14 @@ function connectorEdges(reg: Region, nodes: FigNode[]): { from: string; to: stri
 		);
 		return Math.hypot(p[0] - (s.a[0] + t * dx), p[1] - (s.a[1] + t * dy)) < tol;
 	};
-	for (let i = 0; i < segs.length; i++)
-		for (let j = i + 1; j < segs.length; j++)
-			if (
-				near(segs[i].a, segs[j]) ||
-				near(segs[i].b, segs[j]) ||
-				near(segs[j].a, segs[i]) ||
-				near(segs[j].b, segs[i])
-			)
+	for (let i = 0; i < segs.length; i++) {
+		const si = nth(segs, i);
+		for (let j = i + 1; j < segs.length; j++) {
+			const sj = nth(segs, j);
+			if (near(si.a, sj) || near(si.b, sj) || near(sj.a, si) || near(sj.b, si))
 				parent[find(i)] = find(j);
+		}
+	}
 	const nets = new Map<number, Seg[]>();
 	segs.forEach((s, i) => nets.set(find(i), [...(nets.get(find(i)) ?? []), s]));
 	const edges: { from: string; to: string }[] = [];
@@ -566,7 +582,9 @@ function cellRules(reg: Region): Seg[] {
 	const cells = notFrame.filter((r) => !notFrame.some((o) => holds(o, r)));
 	const rows: Box[][] = [];
 	for (const r of [...cells].sort((a, b) => a[1] - b[1] || a[0] - b[0])) {
-		const row = rows.find((w) => near(w[0][1], r[1]) && near(w[0][3], r[3]));
+		const row = rows.find(
+			(w) => near(nth(w, 0)[1], r[1]) && near(nth(w, 0)[3], r[3]),
+		);
 		if (row) row.push(r);
 		else rows.push([r]);
 	}
@@ -579,16 +597,18 @@ function cellRules(reg: Region): Seg[] {
 				w.every(
 					(r, i) =>
 						i === 0 ||
-						(r[0] - w[i - 1][2] >= -1 && r[0] - w[i - 1][2] <= 3),
+						(r[0] - nth(w, i - 1)[2] >= -1 && r[0] - nth(w, i - 1)[2] <= 3),
 				),
 		)
-		.sort((a, b) => a[0][1] - b[0][1]);
+		.sort((a, b) => nth(a, 0)[1] - nth(b, 0)[1]);
 	// Stacked rows: touching vertically and sharing at least three column edges (outer edges included).
-	const edges = (w: Box[]) => [w[0][0], ...w.map((r) => r[2])];
+	const edges = (w: Box[]) => [nth(w, 0)[0], ...w.map((r) => r[2])];
 	const grid: Box[][] = [];
 	for (const w of tiled) {
 		const last = grid.at(-1);
-		const touches = last && w[0][1] - last[0][3] >= -1 && w[0][1] - last[0][3] <= 3;
+		const top = nth(w, 0)[1];
+		const touches =
+			last && top - nth(last, 0)[3] >= -1 && top - nth(last, 0)[3] <= 3;
 		const shared = last
 			? edges(w).filter((x) => edges(last).some((y) => near(x, y, 3))).length
 			: 0;
@@ -619,7 +639,7 @@ function vectorTable(reg: Region, notes: string[]): FigTable {
 	const lines: Piece[][] = [];
 	for (const p of ps) {
 		const l = lines.at(-1);
-		if (l && Math.abs(l[0].bbox[3] - p.bbox[3]) < 2.5) l.push(p);
+		if (l && Math.abs(nth(l, 0).bbox[3] - p.bbox[3]) < 2.5) l.push(p);
 		else lines.push([p]);
 	}
 	const vOf = (segs: Seg[]) =>
@@ -631,7 +651,7 @@ function vectorTable(reg: Region, notes: string[]): FigTable {
 			(s) => Math.abs(s.a[1] - s.b[1]) < 1 && Math.abs(s.a[0] - s.b[0]) > 8,
 		);
 	const cluster = (vs: number[]) =>
-		vs.sort((a, b) => a - b).filter((v, i, a) => i === 0 || v - a[i - 1] > 4);
+		vs.sort((a, b) => a - b).filter((v, i, a) => i === 0 || v - nth(a, i - 1) > 4);
 	// No drawn rules (fewer than 3 either way): a grid of cell rectangles draws them instead.
 	const drawnRules = (segs: Seg[]) =>
 		cluster([...new Set(vOf(segs).map((s) => Math.round(s.a[0])))]).length >= 3 &&
@@ -671,14 +691,14 @@ function vectorTable(reg: Region, notes: string[]): FigTable {
 			"borderless table: row spans cannot be checked; blank cells are flagged",
 		);
 	const bands: [number, number][] = ruled
-		? hRules.slice(1).map((y, i) => [hRules[i], y] as [number, number])
+		? hRules.slice(1).map((y, i) => [nth(hRules, i), y] as [number, number])
 		: lines.map((l) => [
 				Math.min(...l.map((p) => p.bbox[1])) - 0.5,
 				Math.max(...l.map((p) => p.bbox[3])) + 0.5,
 			]);
 	// Merged cells from the drawing: two neighbouring grid cells are one cell unless a rule separates them.
 	const hRuleAt = (y: number, c: number) => {
-		const xm = (cols[c] + cols[c + 1]) / 2;
+		const xm = (nth(cols, c) + nth(cols, c + 1)) / 2;
 		return hSegs.some(
 			(s) =>
 				Math.abs(s.a[1] - y) < 2.5 &&
@@ -687,7 +707,8 @@ function vectorTable(reg: Region, notes: string[]): FigTable {
 		);
 	};
 	const vRuleAt = (x: number, r: number) => {
-		const ym = (bands[r][0] + bands[r][1]) / 2;
+		const [y0, y1] = nth(bands, r);
+		const ym = (y0 + y1) / 2;
 		return vSegs.some(
 			(s) =>
 				Math.abs(s.a[0] - x) < 2.5 &&
@@ -700,26 +721,22 @@ function vectorTable(reg: Region, notes: string[]): FigTable {
 	const hasText = (r: number, c: number) =>
 		ps.some((p) => {
 			const [cx, cy] = center(p.bbox);
-			return (
-				cx >= cols[c] &&
-				cx < cols[c + 1] &&
-				cy >= bands[r][0] &&
-				cy < bands[r][1]
-			);
+			const [y0, y1] = nth(bands, r);
+			return cx >= nth(cols, c) && cx < nth(cols, c + 1) && cy >= y0 && cy < y1;
 		});
 	const id = (r: number, c: number) => r * nC + c;
 	const uf = Array.from({ length: bands.length * nC }, (_, i) => i);
-	const find = (i: number): number => (uf[i] === i ? i : (uf[i] = find(uf[i])));
+	const find = (i: number): number => (uf[i] === i ? i : (uf[i] = find(nth(uf, i))));
 	if (ruled && vRules.length >= 3)
 		for (let r = 0; r < bands.length; r++)
 			for (let c = 0; c < nC; c++) {
 				if (
 					c + 1 < nC &&
-					!vRuleAt(cols[c + 1], r) &&
+					!vRuleAt(nth(cols, c + 1), r) &&
 					!(hasText(r, c) && hasText(r, c + 1))
 				)
 					uf[find(id(r, c + 1))] = find(id(r, c));
-				if (r + 1 < bands.length && !hRuleAt(bands[r][1], c))
+				if (r + 1 < bands.length && !hRuleAt(nth(bands, r)[1], c))
 					uf[find(id(r + 1, c))] = find(id(r, c));
 			}
 	type Cell = FigTable["rows"][number][number];
@@ -730,12 +747,13 @@ function vectorTable(reg: Region, notes: string[]): FigTable {
 	const placed = new Set<Piece>();
 	for (let r = 0; r < bands.length; r++)
 		for (let c = 0; c < nC; c++) {
+			const row = nth(grid, r);
 			const root = find(id(r, c));
-			if (root !== id(r, c) && grid[r][c] === undefined) {
-				grid[r][c] = { text: "", status: "verified", covered: true };
+			if (root !== id(r, c) && row[c] === undefined) {
+				row[c] = { text: "", status: "verified", covered: true };
 				continue;
 			}
-			if (grid[r][c]) continue;
+			if (row[c]) continue;
 			// Extent of this merged cell (a component should be a rectangle; anything else is flagged).
 			let r1 = r;
 			let c1 = c;
@@ -745,7 +763,12 @@ function vectorTable(reg: Region, notes: string[]): FigTable {
 			for (let k = 0; k < uf.length; k++) if (find(k) === root) size++;
 			const rect = size === (r1 - r + 1) * (c1 - c + 1);
 			if (!rect) irregular++;
-			const box: Box = [cols[c], bands[r][0], cols[c1 + 1], bands[r1][1]];
+			const box: Box = [
+				nth(cols, c),
+				nth(bands, r)[0],
+				nth(cols, c1 + 1),
+				nth(bands, r1)[1],
+			];
 			const inCell = ps.filter((p) => {
 				const [cx, cy] = center(p.bbox);
 				return cx >= box[0] && cx < box[2] && cy >= box[1] && cy < box[3];
@@ -760,7 +783,7 @@ function vectorTable(reg: Region, notes: string[]): FigTable {
 				)
 				.map((p) => p.text)
 				.join(" ");
-			grid[r][c] = {
+			row[c] = {
 				text,
 				bbox: box,
 				status: (!ruled && !text) || !rect ? "unverified" : "verified",
@@ -770,7 +793,11 @@ function vectorTable(reg: Region, notes: string[]): FigTable {
 			for (let rr = r; rr <= r1; rr++)
 				for (let cc = c; cc <= c1; cc++)
 					if (rr !== r || cc !== c)
-						grid[rr][cc] = { text: "", status: "verified", covered: true };
+						nth(grid, rr)[cc] = {
+							text: "",
+							status: "verified",
+							covered: true,
+						};
 		}
 	if (irregular)
 		notes.push(
@@ -1090,17 +1117,21 @@ async function analyseRaster(
 	const b = await vision(png, RASTER_PROMPT_B, RasterRead);
 	const W = bbox[2] - bbox[0];
 	const H = bbox[3] - bbox[1];
-	const toPage = (q: number[]): Box => [
-		bbox[0] + (q[1] / 1000) * W,
-		bbox[1] + (q[0] / 1000) * H,
-		bbox[0] + (q[3] / 1000) * W,
-		bbox[1] + (q[2] / 1000) * H,
+	// A short box_2d from the model reads as NaN coordinates, as before the index checks.
+	const toPage = ([y0 = NaN, x0 = NaN, y1 = NaN, x1 = NaN]: number[]): Box => [
+		bbox[0] + (x0 / 1000) * W,
+		bbox[1] + (y0 / 1000) * H,
+		bbox[0] + (x1 / 1000) * W,
+		bbox[1] + (y1 / 1000) * H,
 	];
 	// Pair B's boxes with A's: identical text (no fuzzy match: one letter is a different arm), nearest box when the text repeats.
 	const bOf = new Map<string, string>(); // a.id -> b.id
 	const used = new Set<string>();
 	for (const n of a.boxes) {
-		const c = (q: number[]) => [(q[0] + q[2]) / 2, (q[1] + q[3]) / 2];
+		const c = ([y0 = NaN, x0 = NaN, y1 = NaN, x1 = NaN]: number[]): [
+			number,
+			number,
+		] => [(y0 + y1) / 2, (x0 + x1) / 2];
 		const m = b.boxes
 			.filter((o) => !used.has(o.id) && key(o.text) === key(n.text))
 			.sort(
@@ -1343,7 +1374,7 @@ export function createFigureAnalyser(doc: mupdf.Document) {
 				(a, b) => a.bbox[3] - b.bbox[3] || a.bbox[0] - b.bbox[0],
 			)) {
 				const row = rows.at(-1);
-				if (row && Math.abs(row[0].bbox[3] - p.bbox[3]) < 3) row.push(p);
+				if (row && Math.abs(nth(row, 0).bbox[3] - p.bbox[3]) < 3) row.push(p);
 				else rows.push([p]);
 			}
 			for (const r of rows) r.sort((a, b) => a.bbox[0] - b.bbox[0]);
@@ -1369,15 +1400,20 @@ export function createFigureAnalyser(doc: mupdf.Document) {
 					return null;
 				const desc = r.filter((p) => p.bbox[0] >= D - 4);
 				// The description is one run of text from the column start: a wide gap is a third column.
-				if (desc.length && desc[0].bbox[0] > D + 8 && lab.length) return null;
-				if (desc.some((p, k) => k > 0 && p.bbox[0] - desc[k - 1].bbox[2] > 12))
+				const [d0] = desc;
+				if (d0 && d0.bbox[0] > D + 8 && lab.length) return null;
+				if (
+					desc.some(
+						(p, k) => k > 0 && p.bbox[0] - nth(desc, k - 1).bbox[2] > 12,
+					)
+				)
 					return null;
 				// (a label wrapping onto a second line before its description starts stays one label)
-				if (lab.length && entries.at(-1) && !entries.at(-1)!.desc.length)
-					entries.at(-1)!.label.push(...lab);
+				const prev = entries.at(-1);
+				if (lab.length && prev && !prev.desc.length) prev.label.push(...lab);
 				else if (lab.length) entries.push({ label: lab, desc: [] });
 				else if (!entries.length) return null;
-				entries.at(-1)!.desc.push(...desc);
+				nth(entries, entries.length - 1).desc.push(...desc);
 			}
 			const full2 = entries.filter((e) => e.desc.length);
 			if (full2.length < 3 || full2.length < entries.length - 1) return null;

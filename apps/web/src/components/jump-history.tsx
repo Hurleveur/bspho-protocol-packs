@@ -1,7 +1,7 @@
 "use client";
 
 import type { Anchor, Node } from "@bspho/protocol/spec";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeftIcon } from "lucide-react";
 import {
 	type RefObject,
 	useCallback,
@@ -362,7 +362,7 @@ export function BackPill({ label }: { label: string | null }) {
 				title="Back (Alt+Left)"
 				className="pointer-events-auto flex max-w-[22rem] items-center gap-1.5 rounded-full border border-accent/40 bg-surface px-3 py-1 text-sm font-medium text-accent shadow-sm transition-colors hover:border-accent hover:bg-accent-soft focus-visible:outline-2 focus-visible:outline-accent"
 			>
-				<ArrowLeft size={14} aria-hidden className="shrink-0" />
+				<ArrowLeftIcon size={14} aria-hidden className="shrink-0" />
 				<span className="truncate">Back to {label}</span>
 			</button>
 		</div>

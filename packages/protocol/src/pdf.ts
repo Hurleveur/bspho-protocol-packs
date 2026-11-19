@@ -53,7 +53,8 @@ function visualLines(raw: RawLine[], page: number): Line[] {
 	const rows: (typeof pieces)[] = [];
 	for (const p of pieces) {
 		const row = rows.at(-1);
-		if (row && Math.abs(row[0].base - p.base) < 2.5) row.push(p);
+		const lead = row?.[0]; // (rows are created with a first piece, never empty)
+		if (row && lead && Math.abs(lead.base - p.base) < 2.5) row.push(p);
 		else rows.push([p]);
 	}
 	return rows.map((row) => {
@@ -187,7 +188,7 @@ export function renderPage(
 			for (let y = ya; y < yb; y++) {
 				for (let x = xa; x < xb; x++) {
 					const i = (y * w + x) * n;
-					px[i + 2] = Math.round(px[i + 2] * 0.55); // less blue = yellow tint
+					px[i + 2] = Math.round((px[i + 2] ?? 0) * 0.55); // less blue = yellow tint
 				}
 			}
 		}

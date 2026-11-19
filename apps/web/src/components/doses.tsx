@@ -9,7 +9,8 @@ type Show = (a: Anchor | undefined, page: number, nodeId: string) => void;
 const KINDS = new Set<Node["kind"]>(["schedule", "drug_info", "step", "phase"]);
 const DOSING = /dos(?:e|es|age|ing)\b|\bagents?\b|\bdrugs?\b|\bmg\b|\/m[²2]\b/i;
 // An "Agent | Dose" overview table counts wherever the outline filed it (ML-DS p. 17 sits under kind "other").
-const OVERVIEW = /\b(?:agents?|drugs?)\b[\s\S]*\bdoses?\b|\bdoses?\b[\s\S]*\b(?:agents?|drugs?)\b/i;
+const OVERVIEW =
+	/\b(?:agents?|drugs?)\b[\s\S]*\bdoses?\b|\bdoses?\b[\s\S]*\b(?:agents?|drugs?)\b/i;
 
 export interface DoseGroup {
 	title: string;

@@ -171,7 +171,12 @@ function editDistanceAtMost(a: string, b: string, max: number): boolean {
 		let rowMin = i;
 		for (let j = 1; j <= b.length; j++) {
 			const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-			let v = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+			// Every cell read below is in range: prev has b.length + 1, cur has j.
+			let v = Math.min(
+				(prev[j] ?? Infinity) + 1,
+				(cur[j - 1] ?? Infinity) + 1,
+				(prev[j - 1] ?? Infinity) + cost,
+			);
 			// Transposition ("vincrisitne").
 			if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1])
 				v = Math.min(v, (prev[j - 2] ?? 0) + 1);
@@ -181,7 +186,7 @@ function editDistanceAtMost(a: string, b: string, max: number): boolean {
 		if (rowMin > max) return false;
 		prev = cur;
 	}
-	return prev[b.length] <= max;
+	return (prev[b.length] ?? Infinity) <= max;
 }
 
 interface Entry {
@@ -239,7 +244,9 @@ export class ProtocolIndex {
 			const title = (lang && n.titles?.[lang]?.trim()) || n.title;
 			const alt = title === n.title ? "" : ` ${title}`;
 			const path = [...n.headingPath, title].join(" › ");
-			const titleHay = fold(`${n.title}${alt} ${n.headingPath.slice(-2).join(" ")}`);
+			const titleHay = fold(
+				`${n.title}${alt} ${n.headingPath.slice(-2).join(" ")}`,
+			);
 			const base = {
 				nodeId: n.id,
 				kind: n.kind,
@@ -291,7 +298,8 @@ export class ProtocolIndex {
 			const max = term.length >= 8 ? 2 : 1;
 			for (const w of this.vocab)
 				if (w[0] === term[0] && editDistanceAtMost(term, w, max)) alts.add(w);
-			for (const w of [...alts]) for (const s of SYN.get(w) ?? []) alts.add(s);
+			for (const w of Array.from(alts))
+				for (const s of SYN.get(w) ?? []) alts.add(s);
 		}
 		return [...alts];
 	}

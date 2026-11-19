@@ -89,9 +89,11 @@ const titles = new Map<string, string>(
 );
 
 const expectedOf = (s: FixtureSection): Block[] =>
-	s.labels.flatMap((l, i) =>
-		l.start ? [{ line: i, role: l.role!, depth: l.depth ?? 0 }] : [],
-	);
+	s.labels.flatMap((l, i) => {
+		if (!l.start) return [];
+		if (!l.role) throw new Error(`${s.id} line ${i}: a block start has no role`);
+		return [{ line: i, role: l.role, depth: l.depth ?? 0 }];
+	});
 
 /** One run: segmentAll per protocol as the build calls it, with the raw answers kept to read block starts. */
 async function run(): Promise<Map<string, Block[] | null>> {
@@ -120,14 +122,18 @@ async function run(): Promise<Map<string, Block[] | null>> {
 				group.forEach((s, i) => {
 					const got = ans?.sections.find((x) => x.id.trim() === `S${i}`);
 					if (!blocks.has(s.key) || !got) return out.set(s.key, null);
-					const at = new Map(ids[i].map((id, k) => [id, k]));
+					const lineIds = ids[i];
+					if (!lineIds) throw new Error(`no line ids for section S${i}`);
+					const at = new Map(lineIds.map((id, k) => [id, k]));
 					out.set(
 						s.key,
-						got.blocks.map((b) => ({
-							line: at.get(b.start.trim())!,
-							role: b.role,
-							depth: b.depth,
-						})),
+						got.blocks.map((b) => {
+							// segmentAll validated every start, so each one is a known line id.
+							const line = at.get(b.start.trim());
+							if (line === undefined)
+								throw new Error(`unknown start ${b.start}`);
+							return { line, role: b.role, depth: b.depth };
+						}),
 					);
 				});
 			}
@@ -149,10 +155,10 @@ function score(s: FixtureSection, got: Block[]) {
 	const gB = got.filter((b) => b.line > 0);
 	const tp = gB.filter((b) => E.has(b.line)).length;
 	const matched = got.filter((b) => E.has(b.line));
-	const roleOk = matched.filter((b) => E.get(b.line)!.role === b.role).length;
-	const depthOk = matched.filter((b) => E.get(b.line)!.depth === b.depth).length;
+	const roleOk = matched.filter((b) => E.get(b.line)?.role === b.role).length;
+	const depthOk = matched.filter((b) => E.get(b.line)?.depth === b.depth).length;
 	const mm: Mismatch[] = [];
-	const text = (i: number) => s.lines[i].text;
+	const text = (i: number) => s.lines[i]?.text ?? "";
 	const blockAt = (bs: Block[], i: number) => bs.filter((b) => b.line <= i).at(-1);
 	for (const b of eB)
 		if (!G.has(b.line))
@@ -175,7 +181,8 @@ function score(s: FixtureSection, got: Block[]) {
 				got: fmt(b),
 			});
 	for (const b of matched) {
-		const e = E.get(b.line)!;
+		const e = E.get(b.line);
+		if (!e) continue;
 		if (e.role !== b.role)
 			mm.push({
 				section: s.id,
@@ -283,7 +290,7 @@ console.log(
 );
 for (const s of sections) {
 	const cells = runs.map((r) => {
-		const m = r.sections.find((x) => x.id === s.id)!.metrics;
+		const m = r.sections.find((x) => x.id === s.id)?.metrics;
 		return (m ? `${p2(m.f1)}/${p2(m.role)}/${p2(m.depth)}` : "fallback").padEnd(20);
 	});
 	console.log(
@@ -304,10 +311,10 @@ if (RUNS > 1) {
 	let same = 0;
 	let n = 0;
 	for (const s of sections)
-		for (let a = 0; a < RUNS; a++)
-			for (let b = a + 1; b < RUNS; b++) {
-				const A = runs[a].sections.find((x) => x.id === s.id)!.blocks;
-				const B = runs[b].sections.find((x) => x.id === s.id)!.blocks;
+		for (const [a, ra] of runs.entries())
+			for (const rb of runs.slice(a + 1)) {
+				const A = ra.sections.find((x) => x.id === s.id)?.blocks;
+				const B = rb.sections.find((x) => x.id === s.id)?.blocks;
 				if (!A || !B) continue;
 				const key = (bs: Block[]) => new Map(bs.map((x) => [x.line, fmt(x)]));
 				const ka = key(A);

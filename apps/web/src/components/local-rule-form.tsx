@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -30,7 +30,7 @@ export function LocalRuleForm({
 				onClick={() => setOpen(true)}
 				className="no-print mt-3 flex items-center gap-1 text-sm text-local hover:underline"
 			>
-				<Plus size={14} /> Add a {hospitalName} local rule
+				<PlusIcon size={14} /> Add a {hospitalName} local rule
 			</button>
 		);
 

@@ -1,5 +1,6 @@
 import { store } from "@bspho/protocol/store";
 import { z } from "zod";
+import { uuidv7 } from "id758";
 
 const Body = z.object({
 	protocolId: z.string().min(1),
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
 		return Response.json({ error: "unknown section" }, { status: 404 });
 	const overlay = await store.overlay();
 	const rule = {
-		id: crypto.randomUUID(),
+		id: uuidv7(),
 		protocolId: b.protocolId,
 		hospital: b.hospital,
 		nodeId: b.nodeId,

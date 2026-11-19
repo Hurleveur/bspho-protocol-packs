@@ -10,7 +10,7 @@ import {
 	requirementLines,
 } from "@/lib/case";
 
-export type CaseUi = "start" | "paste" | "summary" | null;
+type CaseUi = "start" | "paste" | "summary" | null;
 
 export interface CaseApi {
 	state: CaseState | null;

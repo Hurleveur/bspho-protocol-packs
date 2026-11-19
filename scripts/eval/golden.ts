@@ -43,15 +43,15 @@ function readGolden(): Golden[] {
 	const wb = XLSX.readFile(
 		join(ROOT, "data", "SwG-UC1-Golden Dataset and mapping table.xlsx"),
 	);
-	const rows = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[wb.SheetNames[0]], {
-		header: 1,
-	});
+	const sheet = wb.Sheets[wb.SheetNames[0] ?? ""];
+	if (!sheet) throw new Error("golden dataset: the workbook has no sheet");
+	const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 });
 	return rows
 		.slice(1)
 		.filter((r) => r?.[1])
 		.map((r, i) => ({
 			q: i + 1,
-			scope: r[0],
+			scope: r[0] ?? "",
 			question: String(r[1])
 				.trim()
 				.replace(/^[“"]|[”"]$/g, ""),
@@ -66,7 +66,10 @@ const PLAN: Record<
 	{
 		mode: "answer" | "refuse";
 		protocols: string[];
-		runs: { path: "agent" | "ask"; protocol?: string; note?: string }[];
+		runs: (
+			| { path: "agent"; protocol: string; note?: string }
+			| { path: "ask"; protocol?: undefined; note?: string }
+		)[];
 	}
 > = {
 	1: {
@@ -137,7 +140,7 @@ async function pro<T>(
 				temperature: 0,
 				providerOptions: { vertex: { thinkingConfig: { thinkingLevel } } },
 			});
-			return r.output;
+			return schema.parse(r.output);
 		} catch (e) {
 			last = e;
 			console.warn(
@@ -348,7 +351,7 @@ async function runAgent(
 	for await (const chunk of stream as unknown as AsyncIterable<Uint8Array>)
 		raw += dec.decode(chunk, { stream: true });
 	const latencyMs = Date.now() - t0;
-	const [text, trailer] = raw.split("\u001e");
+	const [text = "", trailer] = raw.split("\u001e");
 	const t = JSON.parse(trailer ?? "{}") as {
 		model: string;
 		passages: { id: string; protocolId: string; page: number; text: string }[];
@@ -380,7 +383,9 @@ async function runAsk(question: string): Promise<Omit<AppRun, "key">> {
 			.map((p) => p.protocolId),
 	);
 	const entries = registry.protocols.filter((p) => p.published && runs.has(p.id));
-	const specs = await Promise.all(entries.map((p) => store.spec(p.id, p.published!)));
+	const specs = await Promise.all(
+		entries.flatMap((p) => (p.published ? [store.spec(p.id, p.published)] : [])),
+	);
 	const names = Object.fromEntries(entries.map((p) => [p.id, p.short]));
 	const t0 = Date.now();
 	const r = await ask(question, specs, names);
@@ -498,6 +503,7 @@ const results: Scored[] = [];
 
 for (const g of golden.filter((x) => x.q <= 7)) {
 	const plan = PLAN[g.q];
+	if (!plan) throw new Error(`Q${g.q}: no plan`);
 	console.log(`\nQ${g.q} ${g.question.slice(0, 90)}`);
 	const allFacts = plan.mode === "answer" ? await facts(g, plan.protocols) : [];
 	for (const f of allFacts)
@@ -511,7 +517,7 @@ for (const g of golden.filter((x) => x.q <= 7)) {
 				run = {
 					key,
 					...(r.path === "agent"
-						? await runAgent(r.protocol!, g.question)
+						? await runAgent(r.protocol, g.question)
 						: await runAsk(g.question)),
 				};
 			} catch (e) {
@@ -535,8 +541,8 @@ for (const g of golden.filter((x) => x.q <= 7)) {
 		);
 		// agent on one protocol is scored against that protocol's facts only (except the exploratory LINES run)
 		const scope =
-			r.path === "agent" && plan.protocols.includes(r.protocol!)
-				? [r.protocol!]
+			r.path === "agent" && plan.protocols.includes(r.protocol)
+				? [r.protocol]
 				: plan.protocols;
 		const fs = allFacts.filter((f) => scope.includes(f.protocol));
 		const verdicts =
@@ -609,7 +615,10 @@ for (const g of golden.filter((x) => x.q <= 7)) {
 			...pages
 				.filter((p) => p.hit === "near" || p.hit === "fact")
 				.map((p) => `${p.protocol} p.${p.page} → our p.${p.via} (${p.hit})`),
-			...scope.filter((p) => DRIFT_NOTE[p]).map((p) => DRIFT_NOTE[p]),
+			...scope.flatMap((p) => {
+				const note = DRIFT_NOTE[p];
+				return note ? [note] : [];
+			}),
 		];
 		const expectedProtocols = r.path === "agent" ? scope : plan.protocols;
 		results.push({
@@ -699,7 +708,7 @@ const failures = primaries
 				r,
 				f: {
 					id: "mode",
-					fact: `mode should be ${PLAN[r.q].mode}, got ${r.run.mode}`,
+					fact: `mode should be ${PLAN[r.q]?.mode}, got ${r.run.mode}`,
 					verdict: "contradicted",
 				} as never,
 				w: 4,

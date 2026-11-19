@@ -1,7 +1,7 @@
 "use client";
 
 import type { AskResult } from "@bspho/protocol/ask";
-import { ArrowLeft, CornerDownLeft, LoaderCircle } from "lucide-react";
+import { ArrowLeftIcon, CornerDownLeftIcon, LoaderCircleIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -41,7 +41,7 @@ export function AskView({
 				href="/"
 				className="flex items-center gap-1 text-sm text-muted hover:text-accent"
 			>
-				<ArrowLeft size={16} /> Protocols
+				<ArrowLeftIcon size={16} /> Protocols
 			</Link>
 			<h1 className="mt-4 text-3xl font-semibold tracking-tight">
 				Ask the protocols
@@ -66,9 +66,9 @@ export function AskView({
 					className="flex items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-white disabled:opacity-50"
 				>
 					{busy ? (
-						<LoaderCircle size={16} className="animate-spin" />
+						<LoaderCircleIcon size={16} className="animate-spin" />
 					) : (
-						<CornerDownLeft size={16} />
+						<CornerDownLeftIcon size={16} />
 					)}{" "}
 					Ask
 				</button>

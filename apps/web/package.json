@@ -14,7 +14,7 @@
 	},
 	"dependencies": {
 		"@bspho/protocol": "workspace:*",
-		"@ingram-tech/nk-themes": "^0.3.0",
+		"id758": "^1.1.0",
 		"lucide-react": "^1.64.0",
 		"next": "16.4.3",
 		"react": "19.3.0",

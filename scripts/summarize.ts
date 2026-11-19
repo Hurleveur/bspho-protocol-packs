@@ -70,6 +70,7 @@ await Promise.all(
 	Array.from({ length: PAR }, async () => {
 		while (next < ids.length) {
 			const id = ids[next++];
+			if (id === undefined) break;
 			try {
 				await run(id);
 			} catch (e) {

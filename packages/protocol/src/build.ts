@@ -138,6 +138,7 @@ function regionsOf(
 	const last = Math.min(s.endPage, s.heading.page + 2);
 	for (let pg = s.heading.page; pg <= last; pg++) {
 		const p = pages[pg - 1];
+		if (!p) throw new Error(`page ${pg} out of range`);
 		const lines = p.lines.filter(
 			(l) =>
 				l.bbox[3] > 0.05 * p.height &&
@@ -322,40 +323,45 @@ export function splitTables(
 	// Lines inside a ruled grid (drawn rules/boxes) laid out in two or more columns are table rows even when
 	// the gap between columns is too narrow to read as cells ("Intrathecal therapy | Intrathecal therapy, dosing ...").
 	const ruled = new Set<Line>();
-	for (const pg of bands ? new Set(lines.map((l) => l.page)) : [])
-		for (const [a, b] of bands!(pg)) {
-			const inside = lines.filter(
-				(l) => l.page === pg && l.bbox[1] >= a - 3 && l.bbox[3] <= b + 3,
-			);
-			// (a grid whose cells hold running prose, like a synopsis, reads better as text)
-			if (
-				inside.length < 3 ||
-				inside.filter((l) => !l.cells && l.text.length >= 75).length >
-					Math.max(2, inside.length / 4)
-			)
-				continue;
-			const lefts = [
-				...new Set(inside.map((l) => Math.round(l.bbox[0] / 10))),
-			].sort((x, y) => x - y);
-			// A grid whose rows all start in its first column ("Drug | Age <1 | ..." over "Single Mtx dosing"):
-			// two rows of three or more cells, and the drawing cuts into a verified grid (column rules, not
-			// a frame around a formula or a callout), make it a table, its one-cell rows included.
-			const multi = () =>
-				inside.filter((l) => l.cells >= 2).length >= 2 &&
-				!!grid?.(pg, [
-					Math.min(...inside.map((l) => l.bbox[0])),
-					a,
-					Math.max(...inside.map((l) => l.bbox[2])),
-					b,
-				]);
-			if (lefts.at(-1)! - lefts[0] >= 4 || multi())
-				for (const l of inside) ruled.add(l);
-		}
+	if (bands)
+		for (const pg of new Set(lines.map((l) => l.page)))
+			for (const [a, b] of bands(pg)) {
+				const inside = lines.filter(
+					(l) => l.page === pg && l.bbox[1] >= a - 3 && l.bbox[3] <= b + 3,
+				);
+				// (a grid whose cells hold running prose, like a synopsis, reads better as text)
+				if (
+					inside.length < 3 ||
+					inside.filter((l) => !l.cells && l.text.length >= 75).length >
+						Math.max(2, inside.length / 4)
+				)
+					continue;
+				const lefts = [
+					...new Set(inside.map((l) => Math.round(l.bbox[0] / 10))),
+				].sort((x, y) => x - y);
+				// A grid whose rows all start in its first column ("Drug | Age <1 | ..." over "Single Mtx dosing"):
+				// two rows of three or more cells, and the drawing cuts into a verified grid (column rules, not
+				// a frame around a formula or a callout), make it a table, its one-cell rows included.
+				const multi = () =>
+					inside.filter((l) => l.cells >= 2).length >= 2 &&
+					!!grid?.(pg, [
+						Math.min(...inside.map((l) => l.bbox[0])),
+						a,
+						Math.max(...inside.map((l) => l.bbox[2])),
+						b,
+					]);
+				// (inside has 3+ lines, so lefts is never empty)
+				if ((lefts.at(-1) ?? 0) - (lefts[0] ?? 0) >= 4 || multi())
+					for (const l of inside) ruled.add(l);
+			}
 	const cellish = (l: Line) => l.cells > 0 || ruled.has(l);
 	let i = 0;
 	while (i < lines.length) {
-		if (!cellish(lines[i])) {
-			text.push(lines[i++]);
+		const first = lines[i];
+		if (!first) throw new Error("unreachable: index within bounds");
+		if (!cellish(first)) {
+			text.push(first);
+			i++;
 			continue;
 		}
 		// Extend the run over tabular lines and short wrapped cell fragments on the same page.
@@ -364,9 +370,8 @@ export function splitTables(
 		let quiet = 0;
 		// Two-column layouts ("Cyclophosphamide (CPM) | 1000 mg/m2 over 30-60 min ...") read as interleaved
 		// lines: a line indented to the description column, or a short one, continues the table.
-		const left = lines[i].bbox[0];
-		while (j < lines.length && lines[j].page === lines[i].page) {
-			const l = lines[j];
+		const left = first.bbox[0];
+		for (let l = lines[j]; l && l.page === first.page; l = lines[j]) {
 			if (cellish(l)) {
 				tabular++;
 				quiet = 0;
@@ -385,7 +390,7 @@ export function splitTables(
 				Math.max(...run.map((l) => l.bbox[2])),
 				Math.max(...run.map((l) => l.bbox[3])),
 			];
-			tables.push({ page: run[0].page, bbox, lines: run });
+			tables.push({ page: first.page, bbox, lines: run });
 			i = end;
 		} else {
 			text.push(...lines.slice(i, end));
@@ -422,9 +427,10 @@ export function blocksOf(all: Line[]): Anchor[] {
 	const out: Anchor[] = [];
 	let cur: Line[] = [];
 	const flush = () => {
-		if (cur.length)
+		const [lead] = cur;
+		if (lead)
 			out.push({
-				page: cur[0].page,
+				page: lead.page,
 				text: cur.map((l) => l.text).join("\n"),
 				bbox: cur.map((l) => l.bbox),
 			});
@@ -432,7 +438,8 @@ export function blocksOf(all: Line[]): Anchor[] {
 	};
 	for (const l of lines) {
 		const prev = cur.at(-1);
-		if (prev) {
+		const [lead] = cur;
+		if (prev && lead) {
 			const h = prev.bbox[3] - prev.bbox[1];
 			const gap = l.bbox[1] - prev.bbox[3];
 			// "OR / AND / unless" lines continue the previous criterion: never split the logic apart.
@@ -449,7 +456,7 @@ export function blocksOf(all: Line[]): Anchor[] {
 			// A list item ends when the text moves back left of its indent (an ordinary paragraph resumes).
 			const itemStart = cur.find((c) => !LONE_BULLET.test(c.text));
 			const dedent =
-				(LONE_BULLET.test(cur[0].text) || ITEM(cur[0].text)) &&
+				(LONE_BULLET.test(lead.text) || ITEM(lead.text)) &&
 				itemStart !== undefined &&
 				itemStart !== l &&
 				l.bbox[0] < itemStart.bbox[0] - 6 &&
@@ -458,9 +465,9 @@ export function blocksOf(all: Line[]): Anchor[] {
 			// and the paragraph after it starts a new one.
 			// A short unmarked line at (or left of) the bullet's own position is a sub-heading ("Laboratory criteria"), not a wrap.
 			const sideHeading =
-				ITEM(cur[0].text) &&
+				ITEM(lead.text) &&
 				!ITEM(l.text) &&
-				l.bbox[0] <= cur[0].bbox[0] + 2 &&
+				l.bbox[0] <= lead.bbox[0] + 2 &&
 				l.text.trim().length <= 40 &&
 				!/^(?:or|and)\b/i.test(l.text);
 			const runIn =
@@ -477,7 +484,7 @@ export function blocksOf(all: Line[]): Anchor[] {
 				samePage && gap < 2 * h && CONNECTOR_LINE.test(l.text.trim());
 			// A list item wrapping onto a lowercase line continues, even across a wide justified gap ("cells")
 			// or a bold tail ("...reported within 24 hours:").
-			const inItem = LONE_BULLET.test(cur[0].text) || ITEM(cur[0].text);
+			const inItem = LONE_BULLET.test(lead.text) || ITEM(lead.text);
 			const cont =
 				inItem &&
 				samePage &&
@@ -485,10 +492,10 @@ export function blocksOf(all: Line[]): Anchor[] {
 				/^\p{Ll}/u.test(l.text) &&
 				!ITEM(l.text) &&
 				!/[.:;]$/.test(prev.text.trim()) &&
-				l.bbox[0] >= cur[0].bbox[0] - 6;
+				l.bbox[0] >= lead.bbox[0] - 6;
 			// A short run-in heading line repeated as the paragraph's first words ("Pre-hydration" / "Pre-hydration should be...").
 			const head =
-				cur.length === 1 || (cur.length === 2 && LONE_BULLET.test(cur[0].text))
+				cur.length === 1 || (cur.length === 2 && LONE_BULLET.test(lead.text))
 					? prev.text.replace(LEAD_GLYPH, "")
 					: "";
 			// Also "IRB Approval" / "Approval from ...", and a bold heading line over a regular paragraph ("5.6.1 - Timing").
@@ -556,13 +563,15 @@ const VERSION = /\b(?:version|vers\.?|v)\s*[:.]?\s*(\d+(?:\.\d+)*[a-z]?)\b/i;
 const DATE_PATTERNS: [RegExp, (m: RegExpMatchArray) => string][] = [
 	[
 		/\b(\d{1,2})[./-](\d{1,2})[./-](\d{4})\b/,
-		(m) => `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`,
+		// (every group is mandatory, so a match always fills them)
+		(m) =>
+			`${m[3]}-${(m[2] ?? "").padStart(2, "0")}-${(m[1] ?? "").padStart(2, "0")}`,
 	],
 	[/\b(\d{4})-(\d{2})-(\d{2})\b/, (m) => `${m[1]}-${m[2]}-${m[3]}`],
 	[
 		/\b(\d{1,2})[\s-]*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s-]*(\d{4})\b/i,
 		(m) =>
-			`${m[3]}-${String("janfebmaraprmayjunjulaugsepoctnovdec".indexOf(m[2].toLowerCase().slice(0, 3)) / 3 + 1).padStart(2, "0")}-${m[1].padStart(2, "0")}`,
+			`${m[3]}-${String("janfebmaraprmayjunjulaugsepoctnovdec".indexOf((m[2] ?? "").toLowerCase().slice(0, 3)) / 3 + 1).padStart(2, "0")}-${(m[1] ?? "").padStart(2, "0")}`,
 	],
 ];
 
@@ -592,7 +601,7 @@ function identity(pages: PdfPage[]) {
 	for (const l of sources) {
 		const v = VERSION.exec(l.text);
 		if (v && !version) {
-			version = v[1];
+			version = v[1] ?? "";
 			evidence = l;
 		}
 		for (const [re, fmt] of DATE_PATTERNS) {
@@ -900,7 +909,10 @@ export async function stageWorkup(
 	for (const l of lines.flat()) {
 		if (l.root.kind !== "diagnostics") continue;
 		const st = settled.get(l.id);
-		if (st?.stage) ((l.a.stage = st.stage), staged++);
+		if (st?.stage) {
+			l.a.stage = st.stage;
+			staged++;
+		}
 		if (st?.technique) l.a.technique = true;
 	}
 	return { staged, moved };
@@ -925,7 +937,8 @@ export function settleStages(lines: LineIn[], raw: RawStages) {
 	const stageOf = (id: string) => res.get(id)?.stage;
 	const setStage = (id: string, st: Stage4) =>
 		res.set(id, { ...res.get(id), stage: st });
-	const later = (st: Stage4 | undefined) => st === "relapse" || st === "follow_up";
+	const later = (st: Stage4 | undefined): st is "relapse" | "follow_up" =>
+		st === "relapse" || st === "follow_up";
 	// A section titled for relapse/recurrence or follow-up is that work-up, whatever stage its investigations got.
 	for (const l of lines) {
 		if (!stageOf(l.id)) continue; // not an investigation (statistics, administration under a mislabelled heading)
@@ -946,7 +959,7 @@ export function settleStages(lines: LineIn[], raw: RawStages) {
 		const staged = [...counts.values()].reduce((a, b) => a + b, 0);
 		// An intro about relapse or follow-up decides the whole list.
 		if (later(intro)) {
-			for (const id of its) setStage(id, intro!);
+			for (const id of its) setStage(id, intro);
 			continue;
 		}
 		// A long list of distinct investigations spanning initial stages (morphology, genetics, CNS, organ function)
@@ -957,7 +970,9 @@ export function settleStages(lines: LineIn[], raw: RawStages) {
 			initial.length >= 2 &&
 			initial.filter(([, k]) => k >= 2).length >= 2;
 		if (spans) {
-			const [main] = initial.sort((a, b) => b[1] - a[1])[0]!;
+			const top = initial.sort((a, b) => b[1] - a[1])[0];
+			if (!top) throw new Error("unreachable: spans needs 2+ initial stages");
+			const [main] = top;
 			if (!intro) setStage(l.intro.id, main);
 			let prev: Stage4 = intro ?? main;
 			for (const id of its) {
@@ -1251,7 +1266,9 @@ export async function treatmentModel(
 		for (const n of own) used.add(n.id);
 		const holder = a.node ? byAlias.get(a.node.trim()) : undefined;
 		const fullTitle = holder ? holder.title.replace(/^[\d.]+\s*/, "").trim() : "";
-		const label = grounded(a.label) ? a.label.trim() : fullTitle || own[0].title;
+		const label = grounded(a.label)
+			? a.label.trim()
+			: fullTitle || (own[0]?.title ?? "");
 		const id = unique(slugOf(label));
 		armAt.set(i, id);
 		arms.push({
@@ -1290,7 +1307,7 @@ export async function treatmentModel(
 		if (!path.length || !grounded(g.label)) continue;
 		const onPath = path.flatMap((aid) =>
 			(arms.find((a) => a.id === aid)?.steps ?? []).filter(
-				(x) => !chosen.has(x) || namedBy[gi].has(x),
+				(x) => !chosen.has(x) || !!namedBy[gi]?.has(x),
 			),
 		);
 		const rule = g.rule ? byAlias.get(g.rule.trim()) : undefined;
@@ -1378,7 +1395,9 @@ function anchorFor(pages: PdfPage[], page: number, quote: string): Anchor | null
 	for (let i = 0; i < lines.length; i++) {
 		let acc = "";
 		for (let j = i; j < Math.min(lines.length, i + 12); j++) {
-			acc = normalize(`${acc} ${lines[j].text}`);
+			const l = lines[j];
+			if (!l) break;
+			acc = normalize(`${acc} ${l.text}`);
 			if (acc.length >= q.length * 0.8 && locate(quote, acc).verified) {
 				if (!best || j - i < best[1] - best[0]) best = [i, j];
 				break;
@@ -1495,6 +1514,12 @@ export async function buildSpec(input: BuildInput): Promise<ProtocolSpec> {
 		used.add(idv);
 		nodeId.set(s.heading.id, idv);
 	}
+	// Every heading id the labeller can name (parents, edge ends) was filtered to a section above.
+	const nodeOf = (headingId: string): string => {
+		const v = nodeId.get(headingId);
+		if (v === undefined) throw new Error(`unknown section ${headingId}`);
+		return v;
+	};
 	const lastPage = pages.length;
 	const nextStart = new Map<string, number>();
 	sections.forEach((s, i) => {
@@ -1510,15 +1535,15 @@ export async function buildSpec(input: BuildInput): Promise<ProtocolSpec> {
 	const segInputs: SegInput[] = [];
 	const nodes: Node[] = sections.map((s) => {
 		const parentHeading = parents.has(s.heading.id)
-			? parents.get(s.heading.id)!
+			? parents.get(s.heading.id)
 			: s.parent;
-		const parent = parentHeading ? nodeId.get(parentHeading)! : null;
+		const parent = parentHeading ? nodeOf(parentHeading) : null;
 		const key = parent ?? "root";
 		const order = siblingsOrder.get(key) ?? 0;
 		siblingsOrder.set(key, order + 1);
 		const to = Math.max(
 			s.heading.page,
-			Math.min(lastPage, nextStart.get(s.heading.id)!),
+			Math.min(lastPage, nextStart.get(s.heading.id) ?? lastPage),
 		);
 		const asFigure = FIGURE_TITLE.test(s.heading.title);
 		const regions = regionsOf(
@@ -1604,22 +1629,24 @@ export async function buildSpec(input: BuildInput): Promise<ProtocolSpec> {
 			// Embedded images (flowcharts, scanned tables) inside this section, cropped.
 			...(asFigure
 				? []
-				: regions.flatMap((r) =>
-						pages[r.page - 1].images
+				: regions.flatMap((r) => {
+						const pg = pages[r.page - 1];
+						if (!pg) throw new Error(`page ${r.page} out of range`);
+						return pg.images
 							.filter(
 								(b) => b[1] >= r.bbox[1] - 4 && b[3] <= r.bbox[3] + 4,
 							)
-							.map((b) => ({ page: r.page, bbox: b, raster: true })),
-					)),
+							.map((b) => ({ page: r.page, bbox: b, raster: true }));
+					})),
 		];
 		if (!asFigure)
 			segInputs.push({
-				key: nodeId.get(s.heading.id)!,
+				key: nodeOf(s.heading.id),
 				title: [...s.path.slice(0, -1).slice(-1), s.heading.title].join(" > "),
 				lines: text,
 			});
 		return {
-			id: nodeId.get(s.heading.id)!,
+			id: nodeOf(s.heading.id),
 			kind: kinds.get(s.heading.id) ?? "other",
 			...(stages.has(s.heading.id) ? { stage: stages.get(s.heading.id) } : {}),
 			title: s.heading.title,
@@ -1669,8 +1696,8 @@ export async function buildSpec(input: BuildInput): Promise<ProtocolSpec> {
 	const edges: Edge[] = [];
 	for (const e of rawEdges) {
 		const edge: Edge = {
-			from: nodeId.get(e.from)!,
-			to: nodeId.get(e.to)!,
+			from: nodeOf(e.from),
+			to: nodeOf(e.to),
 			kind: e.kind,
 		};
 		if (e.evidenceQuote && e.evidencePage) {
@@ -1743,12 +1770,14 @@ export async function buildSpec(input: BuildInput): Promise<ProtocolSpec> {
 		// The labeller sometimes leaves per-course "Supportive Care" sub-sections as "other": catch them by title too.
 		const CARE_TITLE =
 			/supportive care|toxicit|prophyla|dose modif|dose[- ]adapt|monitoring|side effects|late effects|follow[- ]up/i;
-		const inCare = (n: Node): boolean =>
-			careKinds.has(n.kind) ||
-			CARE_TITLE.test(n.title) ||
-			(n.parent !== null &&
-				!!byNode.get(n.parent) &&
-				inCare(byNode.get(n.parent)!));
+		const inCare = (n: Node): boolean => {
+			const up = n.parent !== null ? byNode.get(n.parent) : undefined;
+			return (
+				careKinds.has(n.kind) ||
+				CARE_TITLE.test(n.title) ||
+				(!!up && inCare(up))
+			);
+		};
 		const baseline = nodes.flatMap((n) =>
 			n.blocks
 				.filter((a) => a.stage === "baseline")

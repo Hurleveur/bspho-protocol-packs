@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Check, ChevronDown } from "lucide-react";
+import { ArrowLeftIcon, CheckIcon, ChevronDownIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
@@ -11,7 +11,13 @@ interface Item {
 }
 
 /** The header's protocol switcher: back to the shelf, or straight to another protocol at this centre. */
-export function ProtocolMenu({ current, protocols }: { current: string; protocols: Item[] }) {
+export function ProtocolMenu({
+	current,
+	protocols,
+}: {
+	current: string;
+	protocols: Item[];
+}) {
 	const [open, setOpen] = useState(false);
 	const box = useRef<HTMLDivElement>(null);
 	useEffect(() => {
@@ -41,7 +47,7 @@ export function ProtocolMenu({ current, protocols }: { current: string; protocol
 				aria-expanded={open}
 				className={`flex items-center gap-1 rounded-md px-2 py-1.5 text-sm whitespace-nowrap transition-colors hover:text-accent ${open ? "text-accent" : "text-muted"}`}
 			>
-				Protocols <ChevronDown size={15} aria-hidden />
+				Protocols <ChevronDownIcon size={15} aria-hidden />
 			</button>
 			{open && (
 				<div
@@ -53,7 +59,7 @@ export function ProtocolMenu({ current, protocols }: { current: string; protocol
 						role="menuitem"
 						className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent-soft"
 					>
-						<ArrowLeft size={15} aria-hidden /> All protocols
+						<ArrowLeftIcon size={15} aria-hidden /> All protocols
 					</Link>
 					{families.map((f) => (
 						<div key={f} className="mt-1 border-t border-line pt-1">
@@ -67,11 +73,15 @@ export function ProtocolMenu({ current, protocols }: { current: string; protocol
 										key={p.id}
 										href={`/p/${p.id}`}
 										role="menuitem"
-										aria-current={p.id === current ? "page" : undefined}
+										aria-current={
+											p.id === current ? "page" : undefined
+										}
 										className={`flex items-center justify-between rounded-md px-3 py-1.5 text-sm hover:bg-accent-soft ${p.id === current ? "font-semibold text-accent" : ""}`}
 									>
 										{p.short}
-										{p.id === current && <Check size={15} aria-hidden />}
+										{p.id === current && (
+											<CheckIcon size={15} aria-hidden />
+										)}
 									</Link>
 								))}
 						</div>

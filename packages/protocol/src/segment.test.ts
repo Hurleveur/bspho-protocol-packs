@@ -19,24 +19,26 @@ const lines = [
 const ids = ["L0", "L1", "L2", "L3"];
 
 test("blocks run from each start to the next; text is the lines verbatim", () => {
-	const a = anchorsFrom(lines.slice(0, 3), ids.slice(0, 3), [
-		{ start: "L0", role: "rule", depth: 0 },
-		{ start: "L2", role: "item", depth: 1 },
-	])!;
+	const a =
+		anchorsFrom(lines.slice(0, 3), ids.slice(0, 3), [
+			{ start: "L0", role: "rule", depth: 0 },
+			{ start: "L2", role: "item", depth: 1 },
+		]) ?? [];
 	expect(a.map((x) => x.text)).toEqual([
 		"PET at LRA will be performed in the last COPDAC-\n28) or DECOPDAC-21 cycle.",
 		"No IR criterion fulfilled",
 	]);
 	expect(a.map((x) => x.role)).toEqual(["rule", "item"]);
-	expect(a[1].depth).toBe(1);
+	expect(a[1]?.depth).toBe(1);
 	expect(a.every((x) => x.bbox.length === x.text.split("\n").length)).toBe(true);
 });
 
 test("a block crossing a page break is one anchor per page, same role", () => {
-	const a = anchorsFrom(lines, ids, [
-		{ start: "L0", role: "rule", depth: 0 },
-		{ start: "L2", role: "prose", depth: 0 },
-	])!;
+	const a =
+		anchorsFrom(lines, ids, [
+			{ start: "L0", role: "rule", depth: 0 },
+			{ start: "L2", role: "prose", depth: 0 },
+		]) ?? [];
 	expect(a.map((x) => [x.page, x.role])).toEqual([
 		[80, "rule"],
 		[80, "prose"],

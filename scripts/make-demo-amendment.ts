@@ -27,9 +27,9 @@ function replaceOnPage(
 	size: number,
 ): boolean {
 	const page = doc.loadPage(pageIndex) as mupdf.PDFPage;
-	const hits = page.search(find);
-	if (!hits.length) return false;
-	const quad = hits[0][0];
+	const hits = page.search(find, undefined);
+	const quad = hits[0]?.[0];
+	if (!quad) return false;
 	const rect: mupdf.Rect = [
 		Math.min(quad[0], quad[4]),
 		Math.min(quad[1], quad[3]),

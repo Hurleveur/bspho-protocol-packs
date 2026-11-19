@@ -1,7 +1,7 @@
 "use client";
 
 import type { Anchor, Finding } from "@bspho/protocol/spec";
-import { ChevronDown, Flag } from "lucide-react";
+import { ChevronDownIcon, FlagIcon } from "lucide-react";
 import { formatVersion } from "@/lib/format";
 import { LocalRuleForm } from "./local-rule-form";
 
@@ -203,7 +203,7 @@ export function CheckThese({
 			className="no-print group/check mt-12 mb-10 scroll-mt-(--stick) rounded-lg border border-line bg-surface"
 		>
 			<summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-3 [&::-webkit-details-marker]:hidden">
-				<Flag size={18} className="text-muted" aria-hidden />
+				<FlagIcon size={18} className="text-muted" aria-hidden />
 				<span className="text-lg font-semibold whitespace-nowrap">
 					Check these
 				</span>
@@ -214,7 +214,7 @@ export function CheckThese({
 					Left to local practice, broken references
 					{leadCount ? `, ${leadCount} AI-flagged leads` : ""}
 				</span>
-				<ChevronDown
+				<ChevronDownIcon
 					size={18}
 					className="ml-auto shrink-0 text-muted transition-transform group-open/check:rotate-180"
 				/>
@@ -228,7 +228,7 @@ export function CheckThese({
 							<span className="font-normal text-muted tabular-nums">
 								({leadCount})
 							</span>
-							<ChevronDown
+							<ChevronDownIcon
 								size={16}
 								className="ml-auto text-muted transition-transform group-open/leads:rotate-180"
 							/>
@@ -266,7 +266,7 @@ export function FindingFlag({ findings }: { findings?: Finding[] }) {
 			aria-label={tip}
 			className={`no-print mt-1.5 shrink-0 ${strong ? "text-warn" : "text-muted"}`}
 		>
-			<Flag size={14} />
+			<FlagIcon size={14} />
 		</span>
 	);
 }

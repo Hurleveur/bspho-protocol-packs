@@ -68,10 +68,11 @@ export function TreatmentMap({
 		for (const a of arms) for (const s of a.steps) m.set(s.id, a);
 		return m;
 	}, [arms]);
+	const lastDone = kase?.done.at(-1);
 	const caseArm =
 		(kase?.cur && armOf.get(kase.cur)) ||
 		arms.find((a) => a.key && a.key === kase?.arm) ||
-		(kase?.done.length ? armOf.get(kase.done[kase.done.length - 1]) : undefined);
+		(lastDone !== undefined ? armOf.get(lastDone) : undefined);
 	const [tab, setTab] = useState<string>(() => (caseArm ?? arms[0])?.key ?? "");
 	const [flash, setFlash] = useState<string | null>(null);
 	const [tip, setTip] = useState<Tip | null>(null);
@@ -202,7 +203,7 @@ export function TreatmentMap({
 						const other =
 							!a.phase &&
 							arms.some((b) => b.phase) &&
-							(i === 0 || arms[i - 1].phase);
+							(i === 0 || arms[i - 1]?.phase);
 						const done = a.steps.some((s) => status?.(s.id));
 						const faded = offArm(a) && !sel && !done;
 						return (
@@ -340,10 +341,9 @@ export function TreatmentMap({
 						const [num, full] = splitNumber(n.node.title);
 						// "IR-High: Consolidation 1" under the IR-High tab reads "Consolidation 1".
 						const text = (multi && stripArm(full, arm.short)) || full;
-						const missing =
-							n.node.notFound?.filter(
-								(f) => f.kind === "start_requirements",
-							) ?? [];
+						const missing = n.node.notFound?.find(
+							(f) => f.kind === "start_requirements",
+						);
 						const cls = n.decision
 							? "border-flow/60 bg-flow-soft text-flow rounded-2xl"
 							: off(n.id) && !st
@@ -367,7 +367,7 @@ export function TreatmentMap({
 										type="button"
 										data-map-node={n.id}
 										onClick={() => open(n.id)}
-										title={`${n.node.title} (p. ${n.node.pages.from})${missing.length ? `\nStart requirements not found in pp. ${missing[0].searched.from}-${missing[0].searched.to}` : ""}`}
+										title={`${n.node.title} (p. ${n.node.pages.from})${missing ? `\nStart requirements not found in pp. ${missing.searched.from}-${missing.searched.to}` : ""}`}
 										aria-current={here ? "step" : undefined}
 										className={`flex size-full flex-col justify-center rounded-lg border px-2.5 py-1.5 text-left leading-tight transition-colors ${cls} ${here && st !== "current" ? "ring-2 ring-accent ring-offset-1" : ""} ${flash === n.id ? "ring-4 ring-flow/60" : ""} ${st === "current" ? "ring-4 ring-accent/25" : ""}`}
 									>

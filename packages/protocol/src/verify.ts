@@ -48,11 +48,13 @@ function ratio(a: string, b: string): number {
 	for (let i = 1; i <= a.length; i++) {
 		for (let j = 1; j <= b.length; j++) {
 			cur[j] =
-				a[i - 1] === b[j - 1] ? prev[j - 1] + 1 : Math.max(prev[j], cur[j - 1]);
+				a[i - 1] === b[j - 1]
+					? (prev[j - 1] ?? 0) + 1
+					: Math.max(prev[j] ?? 0, cur[j - 1] ?? 0);
 		}
 		prev.set(cur);
 	}
-	return (2 * prev[b.length]) / (a.length + b.length);
+	return (2 * (prev[b.length] ?? 0)) / (a.length + b.length);
 }
 
 /** Best ratio of q against a contiguous window of t of about the same length, anchored on shared 8-grams. */
