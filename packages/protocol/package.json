@@ -12,7 +12,7 @@
 	},
 	"dependencies": {
 		"@ai-sdk/google-vertex": "^5.0.142",
-		"@google-cloud/storage": "^8.4.0",
+		"@google-cloud/storage": "^9",
 		"ai": "^7.0.177",
 		"mupdf": "^1.28.6",
 		"zod": "^4.6.7"
